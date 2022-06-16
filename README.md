@@ -13,7 +13,7 @@ Authors: Shane Dewees, Carla D'Antonio, and Nicole Molinari
 
 *plot_points.shp*: Shapefile containing the 50 randomly generated points per plot and the associated vegetation type that each point falls in.   
   * *FID*: Unique id for each feature in this layer. 
-  * *Shape*: Feature class for each feature in this layer. As this layer consits of the randomly generated points, all values are Point.  
+  * *Shape*: Feature class for each feature in this layer. As this layer consists of the randomly generated points, all values are Point.  
   * *CID*: Identifying value to match the points to the plot they were generated in. Is identical to the *FID* value in *plots.shp*. 
   * *F1930_Veg*: Vegetation group of the pixel that the point falls in for 1930 imagery. Possible values are:
       * t = tree
