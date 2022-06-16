@@ -102,15 +102,15 @@ Authors: Shane Dewees, Carla D'Antonio, and Nicole Molinari
 *veg_enviro_fire_drought_1* through *veg_enviro_fire_drought_5*: Identical metadata as for above *veg_enviro_fire_drought* file. The only difference is the *min_anomaly* column is calculated with the annual precipitation data for the year of fire and number of years after fire corresponding to the number at the end of the file name. For example, *veg_enviro_fire_drought_2* was calculated for the year of fire and two years following the fire. 
 
 *rmse*: Random forest accuracy values for different postfire precipitation anomaly calculations provided in Appendix S2.
-    * *Precipitation anomaly variable*: How many years postfire were used to calculate the given postfire precipitation anomaly variable.
-    * *Root mean square error*: The random forest model accuracy for each precipitation anomaly variable from the chaparral cover change dataset. 
-    * *Kappa*: The random forest model accuracy for each precipitation anomaly variable from the chaparral conersion to grass dataset. 
+ * *Precipitation anomaly variable*: How many years postfire were used to calculate the given postfire precipitation anomaly variable. 
+ * *Root mean square error*: The random forest model accuracy for each precipitation anomaly variable from the chaparral cover change dataset.
+ * *Kappa*: The random forest model accuracy for each precipitation anomaly variable from the chaparral conversion to grass dataset. 
 
-*cover_correlation*: Correlation matrix provided in Appendix S6 showing the Pearsons' correlation coefficient for eahc set of variables on the chaparral cover change dataset. Both column and row names are variables. 
+*cover_correlation*: Correlation matrix provided in Appendix S6 showing the Pearsons' correlation coefficient for each set of variables on the chaparral cover change dataset. Both column and row names are variables. 
 
-*chaparral_cover_short*: Correlation matrix provided in Appendix S6 showing the Pearsons' correlation coefficient for eahc set of variables on the chaparral cover change dataset subset to only include minimum fire return intervals less than 81 years. Both column and row names are variables. 
+*chaparral_cover_short*: Correlation matrix provided in Appendix S6 showing the Pearsons' correlation coefficient for each set of variables on the chaparral cover change dataset subset to only include minimum fire return intervals less than 81 years. Both column and row names are variables. 
 
-*chaparral_cover_long*: Correlation matrix provided in Appendix S6 showing the Pearsons' correlation coefficient for eahc set of variables on the chaparral cover change dataset subset to only include minimum fire return intervals greater than or equal to 81 years. Both column and row names are variables. 
+*chaparral_cover_long*: Correlation matrix provided in Appendix S6 showing the Pearsons' correlation coefficient for each set of variables on the chaparral cover change dataset subset to only include minimum fire return intervals greater than or equal to 81 years. Both column and row names are variables. 
 
 *conversion_correlation*: Correlation matrix provided in Appendix S6 showing the Pearson's correlation coefficient for each set of variables on the chaparral conversion to grass dataset. Both column and row names are variables.
 
