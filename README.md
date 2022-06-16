@@ -161,8 +161,8 @@ This code takes all the raw data (plot_points.shp and all the above climate, top
 ###### random forest.rmd
 This code takes all six of the veg_enviro_fire_drought csv files and runs random forest models to asses which method of calculating the minimum postfire precipitation anomaly leads to the most accurate predictive models. The data obtained from this code is used to make the rmse csv file and Appendix S2.
 
-###### data exploration
+###### data exploration.rmd
 This code takes the veg_enviro_fire_drought_4 csv file and checks all of the independent variables for normal or non-normal distribution. 
 
-###### manuscript
+###### manuscript.rmd
 This code takes the veg_enviro_fire_drought_4, plot_percent_cover, and plots_percent_cover_tidy csv files and performs all of the analyses discussed in the associated manuscript and creates all of the figures (excluding figure 1) as well. 
