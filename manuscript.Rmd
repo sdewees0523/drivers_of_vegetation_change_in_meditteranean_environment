@@ -1,0 +1,1966 @@
+---
+title: "Manuscript stats and figures"
+author: "Shane Dewees"
+date: "2/10/2021"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+library(FSA)
+library(janitor)
+library(broom)
+library(here)
+library(caret)
+library(randomForest)
+library(hrbrthemes)
+library(hier.part)
+library(statsExpressions)
+library(kableExtra)
+library(tidyverse)
+library(patchwork)
+library(vcd)
+library(networkD3)
+library(plotmo)
+library(partykit)
+library(ggparty)
+library(grDevices)
+library(GGally)
+library(broom)
+library(jtools)
+```
+
+
+```{r, message= FALSE, warning=FALSE}
+veg_enviro_fire_drought <- read.csv(here("csv_data", "veg_enviro_fire_drought_4.csv")) %>% 
+  rename("southwestness" = "aspect")
+
+plots <- veg_enviro_fire_drought$plot_number
+
+plots_percent_cover <- read.csv(here("csv_data", "plots_percent_cover.csv")) %>% 
+  filter(plot_number %in% plots)
+plots_percent_cover_tidy <- read.csv(here("csv_data", "plots_percent_cover_tidy.csv")) %>% 
+  filter(plot_number %in% plots)
+```
+
+
+## Analysis of Vegetation fluxes and drivers {.tabset .tabset-fade .tabset-pills}
+
+### Vegetation fluxes 
+
+#### Sankey diagram
+
+```{r, message= FALSE, warning=FALSE}
+links <- veg_enviro_fire_drought %>% 
+  dplyr::select("dominant_veg_1930", "dominant_veg_2009") %>% 
+  filter(dominant_veg_1930 != "barren") %>% 
+  filter(dominant_veg_2009 != "barren")
+links <- data.frame(links) %>% 
+  group_by(dominant_veg_1930) %>% 
+  group_by(dominant_veg_2009, .add = TRUE) %>% 
+  summarise(value = n())
+
+links$dominant_veg_1930[links$dominant_veg_1930 == "chaparral"]<- "chaparral_1930"
+links$dominant_veg_1930[links$dominant_veg_1930 == "sage"]<- "sage_1930"
+links$dominant_veg_1930[links$dominant_veg_1930 == "grass"]<- "grass_1930"
+links$dominant_veg_1930[links$dominant_veg_1930 == "tree"]<- "tree_1930"
+links$dominant_veg_2009[links$dominant_veg_2009 == "chaparral"]<- "chaparral_2009"
+links$dominant_veg_2009[links$dominant_veg_2009 == "sage"]<- "sage_2009"
+links$dominant_veg_2009[links$dominant_veg_2009 == "grass"]<- "grass_2009"
+links$dominant_veg_2009[links$dominant_veg_2009 == "tree"]<- "tree_2009"
+
+nodes <- data.frame(unique(links$dominant_veg_1930)) %>% 
+  rename("name" = "unique.links.dominant_veg_1930.")
+nodes$names2 <-  unique(links$dominant_veg_2009) 
+nodes <- nodes %>% 
+  unite(name, names2, col = "name", sep = "/") %>% 
+  separate_rows(name, sep = "/")
+
+links$IDsource=match(links$dominant_veg_1930, nodes$name)-1 
+links$IDtarget=match(links$dominant_veg_2009, nodes$name)-1
+
+links <- data.frame(links)
+
+my_color <- 'd3.scaleOrdinal() .domain(["chaparral_1930", "grass_1930", "sage_1930", "tree_1930", "chaparral_2009", "grass_2009", "sage_2009", "tree_2009"]) .range(["yellowgreen", "khaki", "seagreen", "royalblue", "yellowgreen", "khaki", "seagreen", "royalblue"])'
+
+test <- sankeyNetwork(Links = links, Nodes = nodes,
+              Source = "IDsource", Target = "IDtarget",
+              Value = "value", NodeID = "name", 
+              sinksRight=FALSE, colourScale= my_color, nodeWidth=40, fontSize=0, nodePadding=20)
+test
+```
+
+#### Vegetation distribution in all plots
+
+```{r, message= FALSE, warning=FALSE}
+chap_1930_median <- median(plots_percent_cover$chaparral_1930)*2
+chap_2009_median <- median(plots_percent_cover$chaparral_2009)*2
+
+chap_1930 <- plots_percent_cover$chaparral_1930
+chap_2009 <- plots_percent_cover$chaparral_2009
+wilcox.test(chap_1930, chap_2009)
+
+chap_all <- ggplot() +
+ geom_density(data = plots_percent_cover, aes(x= chaparral_1930*2, fill = "1930"), alpha=.2)+
+ geom_density(data = plots_percent_cover, aes(x = chaparral_2009*2, fill = "2009"), alpha = .2)+
+  labs(x= "Chaparral percent cover \n in all plots",
+       y = "Density")+
+  geom_vline(aes(xintercept = chap_1930_median), colour = "1930", alpha = 0.8) +
+  geom_vline(aes(xintercept = chap_2009_median), colour = "2009", alpha = 0.8) + 
+  annotate("text", x = 20, y = 0.015, label = "p < 0.01", size = 7) +
+  theme_classic() +
+  theme(legend.title = element_blank(),
+        text = element_text(size = 30)) 
+
+grass_1930_median <- median(plots_percent_cover$grass_1930)*2
+grass_2009_median <- median(plots_percent_cover$grass_2009)*2
+
+grass_1930 <- plots_percent_cover$grass_1930
+grass_2009 <- plots_percent_cover$grass_2009
+wilcox.test(grass_1930, grass_2009)
+
+grass_all <- ggplot() +
+ geom_density(data = plots_percent_cover, aes(x= grass_1930*2, fill = "1930"), alpha=.2)+
+ geom_density(data = plots_percent_cover, aes(x = grass_2009*2, fill = "2009"), alpha = .2)+
+  labs(x= "Grass percent cover in all plots",
+       y = "Density")+
+  geom_vline(aes(xintercept = grass_1930_median), colour = "1930", alpha = 0.8) +
+  geom_vline(aes(xintercept = grass_2009_median), colour = "2009", alpha = 0.8) + 
+  annotate("text", x = 80, y = 0.03, label = "p < 0.01", size = 7) +
+  theme_classic() +
+  theme(legend.title = element_blank(),
+        text = element_text(size = 30))
+
+sage_1930_median <- median(plots_percent_cover$sage_1930)*2
+sage_2009_median <- median(plots_percent_cover$sage_2009)*2
+
+sage_1930 <- plots_percent_cover$sage_1930
+sage_2009 <- plots_percent_cover$sage_2009
+wilcox.test(sage_1930, sage_2009)
+
+sage_all <- ggplot() +
+ geom_density(data = plots_percent_cover, aes(x= sage_1930*2, fill = "1930"), alpha=.2)+
+ geom_density(data = plots_percent_cover, aes(x = sage_2009*2, fill = "2009"), alpha = .2)+
+  labs(x= "Sage scrub percent cover \n in all plots",
+       y = "Density")+
+  geom_vline(aes(xintercept = sage_1930_median), colour = "1930", alpha = 0.8) +
+  geom_vline(aes(xintercept = sage_2009_median), colour = "2009", alpha = 0.8) + 
+  annotate("text", x = 70, y = 0.15, label = "p = 0.9501", size = 7) +
+  theme_classic() +
+  theme(legend.title = element_blank(),
+        text = element_text(size = 30))
+
+tree_1930_median <- median(plots_percent_cover$tree_1930)*2
+tree_2009_median <- median(plots_percent_cover$tree_2009)*2
+
+tree_1930 <- plots_percent_cover$tree_1930
+tree_2009 <- plots_percent_cover$tree_2009
+wilcox.test(tree_1930, tree_2009)
+
+tree_all <- ggplot() +
+ geom_density(data = plots_percent_cover, aes(x= tree_1930*2, fill = "1930"), alpha=.2)+
+ geom_density(data = plots_percent_cover, aes(x = tree_2009*2, fill = "2009"), alpha = .2)+
+  labs(x= "Tree percent cover in all plots",
+       y = "Density") +
+  geom_vline(aes(xintercept = tree_1930_median), colour = "1930", alpha = 0.8) +
+  geom_vline(aes(xintercept = tree_2009_median), colour = "2009", alpha = 0.8) +
+  annotate("text", x = 70, y = 0.07, label = "p = 0.5621", size = 7) +
+  theme_classic() +
+  theme(legend.title = element_blank(),
+        text = element_text(size = 30))
+
+figure3 <- chap_all + 
+  grass_all +sage_all + 
+  tree_all+ plot_layout(ncol = 2, widths = unit(c(3,2), c('in', 'in')),
+                        heights = unit(c(3,3), c('in', 'in'))) +
+  plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(size = 30))
+
+figure3
+
+```
+
+#### Percent cover in dominant plots 
+
+
+```{r, message= FALSE, warning=FALSE}
+pure_chaparral <- plots_percent_cover_tidy %>% 
+  filter(dominant_veg_1930 == "chaparral"| dominant_veg_2009 == "chaparral")
+chap_1930_median <- median(pure_chaparral$dominant_cover_1930)
+chap_2009_median <- median(pure_chaparral$dominant_cover_2009)
+
+chap_1930 <- pure_chaparral %>% 
+  filter(dominant_veg_1930 == "chaparral") %>% 
+  select(dominant_cover_1930) 
+chap_1930_pure <- chap_1930 %>% 
+  pull()
+chap_2009 <- pure_chaparral %>% 
+  filter(dominant_veg_2009 == "chaparral") %>% 
+  select(dominant_cover_2009)
+chap_2009_pure <- chap_2009 %>% 
+  pull()
+wilcox.test(chap_1930_pure, chap_2009_pure)
+
+chap_plot <- ggplot() +
+ geom_density(data = chap_1930, aes(x= dominant_cover_1930, fill = "1930"), alpha=.2)+
+ geom_density(data = chap_2009, aes(x = dominant_cover_2009, fill = "2009"), alpha = .2)+
+  labs(x= "Percent cover of chaparral \n primary vegetation plots",
+       y = "Density") +
+  geom_vline(aes(xintercept = chap_1930_median), colour = "1930", alpha = 0.8) +
+  geom_vline(aes(xintercept = chap_2009_median), colour = "2009", alpha = 0.8)  + 
+  annotate("text", x = 50, y = 0.035, label = "p < 0.01", size = 7) +
+  theme_classic() +
+  theme(legend.title = element_blank(),
+        text = element_text(size = 30))
+
+pure_grass <- plots_percent_cover_tidy %>% 
+  filter(dominant_veg_1930 == "grass"| dominant_veg_2009 == "grass")
+grass_1930_median <- median(pure_grass$dominant_cover_1930)
+grass_2009_median <- median(pure_grass$dominant_cover_2009)
+
+grass_1930 <- pure_grass %>% 
+  filter(dominant_veg_1930 == "grass") %>% 
+  select(dominant_cover_1930) 
+grass_1930_pure <- grass_1930 %>% 
+  pull()
+grass_2009 <- pure_grass %>% 
+  filter(dominant_veg_2009 == "grass") %>% 
+  select(dominant_cover_2009)
+grass_2009_pure <- grass_2009 %>% 
+  pull()
+wilcox.test(grass_1930_pure, grass_2009_pure)
+
+ grass_plot <- ggplot() +
+ geom_density(data = grass_1930, aes(x= dominant_cover_1930, fill = "1930"), alpha=.2)+
+ geom_density(data = grass_2009, aes(x = dominant_cover_2009, fill = "2009"), alpha = .2)+
+  labs(x= "Percent cover of grass \n primary vegetation plots",
+       y = "Density") +
+  geom_vline(aes(xintercept = grass_1930_median), colour = "1930", alpha = 0.8) +
+  geom_vline(aes(xintercept = grass_2009_median), colour = "2009", alpha = 0.8)  + 
+  annotate("text", x = 90, y = 0.04, label = "p < 0.01", size = 7) +
+  theme_classic() +
+  theme(legend.title = element_blank(),
+        text = element_text(size = 30))
+
+pure_sage <- plots_percent_cover_tidy %>% 
+  filter(dominant_veg_1930 == "sage"| dominant_veg_2009 == "sage")
+sage_1930_median <- median(pure_sage$dominant_cover_1930)
+sage_2009_median <- median(pure_sage$dominant_cover_2009)
+
+sage_1930 <- pure_sage %>% 
+  filter(dominant_veg_1930 == "sage") %>% 
+  select(dominant_cover_1930) 
+sage_1930_pure <- sage_1930 %>% 
+  pull()
+sage_2009 <- pure_sage %>% 
+  filter(dominant_veg_2009 == "sage") %>% 
+  select(dominant_cover_2009)
+sage_2009_pure <- sage_2009 %>% 
+  pull()
+wilcox.test(sage_1930_pure, sage_2009_pure)
+
+sage_plot <- ggplot() +
+ geom_density(data = sage_1930, aes(x= dominant_cover_1930, fill = "1930"), alpha=.2)+
+ geom_density(data = sage_2009, aes(x = dominant_cover_2009, fill = "2009"), alpha = .2)+
+  labs(x= "Percent cover of sage scrub \n primary vegetation plots",
+       y = "Density") +
+  geom_vline(aes(xintercept = sage_1930_median), colour = "1930", alpha = 0.8) +
+  geom_vline(aes(xintercept = sage_2009_median), colour = "2009", alpha = 0.8)  + 
+  annotate("text", x = 85, y = 0.0375, label = "p < 0.01", size = 7) +
+  theme_classic() +
+  theme(legend.title = element_blank(),
+        text = element_text(size = 30))
+
+pure_tree <- plots_percent_cover_tidy %>% 
+  filter(dominant_veg_1930 == "tree"| dominant_veg_2009 == "tree")
+tree_1930_median <- median(pure_tree$dominant_cover_1930)
+tree_2009_median <- median(pure_tree$dominant_cover_2009)
+
+tree_1930 <- pure_tree %>% 
+  filter(dominant_veg_1930 == "tree") %>% 
+  select(dominant_cover_1930) 
+tree_1930_pure <- tree_1930 %>% 
+  pull()
+tree_2009 <- pure_tree %>% 
+  filter(dominant_veg_2009 == "tree") %>% 
+  select(dominant_cover_2009)
+tree_2009_pure <- tree_2009 %>% 
+  pull()
+wilcox.test(tree_1930_pure, tree_2009_pure)
+
+tree_plot <- ggplot() +
+ geom_density(data = tree_1930, aes(x= dominant_cover_1930, fill = "1930"), alpha=.2)+
+ geom_density(data = tree_2009, aes(x = dominant_cover_2009, fill = "2009"), alpha = .2)+
+  labs(x= "Percent cover of tree \n primary vegetation plots",
+       y = "Density") +
+  geom_vline(aes(xintercept = tree_1930_median), colour = "1930", alpha = 0.8) +
+  geom_vline(aes(xintercept = tree_2009_median), colour = "2009", alpha = 0.8)  + 
+  annotate("text", x = 90, y = 0.025, label = "p = 0.3896", size = 7) +
+  theme_classic() +
+  theme(legend.title = element_blank(),
+        text = element_text(size = 30))
+
+figure4 <- chap_plot + 
+  grass_plot + 
+  sage_plot + 
+  tree_plot + plot_layout(ncol = 2,
+                          widths = unit(c(3,3), c('in', 'in')),
+                          heights = unit(c(3,3), c('in', 'in'))) + 
+  plot_annotation(tag_levels = "A")& theme(plot.tag = element_text(size = 30))
+figure4
+
+```
+
+
+### Chaparral Conversion {.tabset .tabset-fade .tabset-pills}
+
+#### Chaparral cover change continuous
+
+##### Random Forest 
+
+```{r, message = FALSE, warning= FALSE}
+
+chaparral_cover_analysis <- veg_enviro_fire_drought %>% 
+  filter(dominant_veg_1930 == "chaparral") %>% 
+  filter(dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  mutate(chaparral_cover_2009 = case_when(dominant_veg_2009 == "chaparral" ~ as.numeric(dominant_cover_2009),
+                                          secondary_veg_2009 == "chaparral" ~ as.numeric(secondary_cover_2009),
+                                          TRUE ~ 100 - as.numeric(dominant_cover_2009) - as.numeric(secondary_cover_2009))) %>% 
+  mutate(chaparral_cover_change = chaparral_cover_2009 - dominant_cover_1930) %>% 
+  na.omit()
+
+chaparral_cover_continuous <- chaparral_cover_analysis %>% 
+ dplyr::select("chaparral_cover_change",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox",
+                "solar_radiation_winter", 
+                "road_dist",
+                "precipitation",
+                "max_temp", 
+                "mean_temp",
+                "min_temp", 
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly")
+
+set.seed(123)
+
+training_samples <- chaparral_cover_continuous$chaparral_cover_change %>%  
+  createDataPartition(p = 0.8, list = FALSE)
+
+train_chap_cover <- chaparral_cover_continuous[training_samples, ]
+
+test_chap_cover <- chaparral_cover_continuous[-training_samples, ]
+
+set.seed(123)
+
+random_chap_cover <- train_chap_cover 
+
+random_chap_cover_test <- test_chap_cover
+set.seed(123)
+
+chap_cover_drought_rf <- randomForest(chaparral_cover_change ~., data = train_chap_cover,
+                              type = prob,
+                              ntree = 500,
+                              mtry = 10,
+                              importance = TRUE)
+chap_cover_drought_rf
+
+
+pred_chap_cover_drought_rf <- predict(chap_cover_drought_rf, random_chap_cover_test) %>% 
+  data.frame() %>% 
+  rename("predicted" = ".") %>% 
+  bind_cols(random_chap_cover_test)
+
+ggplot(pred_chap_cover_drought_rf, aes(x = predicted, y = chaparral_cover_change)) +
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+ 
+rf_chap_cover_confusion_table <- table(random_chap_cover_test$chaparral_cover_change, pred_chap_cover_drought_rf$predicted)
+
+chap_cover_drought_rf_mda <- data.frame(chap_cover_drought_rf$importance) %>% 
+  dplyr::select("X.IncMSE") %>% 
+  rownames_to_column(var = "variables")
+
+chap_cover_drought_rf_plot <- ggplot(chap_cover_drought_rf_mda, aes(fct_reorder(variables, X.IncMSE),X.IncMSE))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Percent increase in \n mean square error")+
+  theme_classic()+
+  theme(text = element_text(size = 10))
+chap_cover_drought_rf_plot
+RMSE(test_chap_cover$chaparral_cover_change, pred_chap_cover_drought_rf$predicted)
+a5_s1 <- chap_cover_drought_rf_plot
+```
+
+##### Getting Rid of Correlated variables
+
+```{r}
+chaparral_cover_analysis_corr <- veg_enviro_fire_drought %>% 
+  filter(dominant_veg_1930 == "chaparral") %>% 
+  filter(dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  mutate(chaparral_cover_2009 = case_when(dominant_veg_2009 == "chaparral" ~ as.numeric(dominant_cover_2009),
+                                          secondary_veg_2009 == "chaparral" ~ as.numeric(secondary_cover_2009),
+                                          TRUE ~ 100 - as.numeric(dominant_cover_2009) - as.numeric(secondary_cover_2009))) %>% 
+  mutate(chaparral_cover_change = chaparral_cover_2009 - dominant_cover_1930) %>% 
+  na.omit()
+
+chaparral_cover_continuous_corr <- chaparral_cover_analysis_corr %>% 
+  dplyr::select("chaparral_cover_change",
+                "southwestness",
+                "slope",
+                "solar_radiation_summer",
+                "solar_radiation_winter",
+                "road_dist",
+                "precipitation",
+                "max_vpd_jan",
+                "max_vpd_aug",
+                "available_water_supply",
+                "organic_matter",
+                "clay",
+                "silt",
+                "min_return_interval",
+                "min_anomaly")
+set.seed(123)
+
+training_samples <- chaparral_cover_continuous_corr$chaparral_cover_change %>%  
+  createDataPartition(p = 0.8, list = FALSE)
+
+train_chap_cover_corr <- chaparral_cover_continuous_corr[training_samples, ]
+
+test_chap_cover_corr <- chaparral_cover_continuous_corr[-training_samples, ]
+
+set.seed(123)
+
+random_chap_cover_corr <- train_chap_cover_corr 
+
+random_chap_cover_test_corr <- test_chap_cover_corr
+
+
+set.seed(123)
+for (x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(random_chap_cover_corr[-1],
+       random_chap_cover_corr$chaparral_cover_change, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r}
+set.seed(123)
+
+chap_cover_rf_corr <- randomForest(chaparral_cover_change ~., data = train_chap_cover_corr,
+                              type = prob,
+                              ntree = 700,
+                              mtry = 6,
+                              importance = TRUE)
+chap_cover_rf_corr
+
+
+pred_chap_cover_rf_corr <- predict(chap_cover_rf_corr, random_chap_cover_test_corr) %>% 
+  data.frame() %>% 
+  rename("predicted" = ".") %>% 
+  bind_cols(random_chap_cover_test_corr)
+
+ggplot(pred_chap_cover_rf_corr, aes(x = predicted, y = chaparral_cover_change)) +
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+ 
+rf_chap_cover_confusion_table_corr <- table(random_chap_cover_test_corr$chaparral_cover_change, pred_chap_cover_rf_corr$predicted)
+
+chap_cover_rf_mda_corr <- data.frame(chap_cover_rf_corr$importance) %>% 
+  dplyr::select("X.IncMSE") %>% 
+  rownames_to_column(var = "variables") %>% 
+  mutate(variables = str_replace(variables, "solar_radiation_equinox", "equinox solar radiation"),
+         variables = str_replace(variables, "road_dist", "distance from roads"),
+         variables = str_replace(variables, "precipitation", "mean annual \n precipitation"),
+         variables = str_replace(variables, "min_temp", "minimum January \n temperature"),
+         variables = str_replace(variables, "max_vpd_jan", "maximum January VPD"),
+         variables = str_replace(variables, "max_vpd_aug", "maximum August VPD"),
+         variables = str_replace(variables, "organic_matter", "percent organic matter"),
+         variables = str_replace(variables, "clay", "percent clay"),
+         variables = str_replace(variables, "silt", "percent silt"),
+         variables = str_replace(variables, "min_return_interval", "minimum fire \n return interval"),
+         variables = str_replace(variables, "min_anomaly", "minimum postfire \n precipitation anomaly"),
+         variables = str_replace_all(variables, "_", " "))
+
+chap_cover_rf_plot_corr <- ggplot(chap_cover_rf_mda_corr, aes(fct_reorder(variables, X.IncMSE),X.IncMSE))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Percent increase in \n mean square error")+
+  theme_classic()+
+  theme(text = element_text(size = 30))
+chap_cover_rf_plot_corr
+RMSE(test_chap_cover_corr$chaparral_cover_change, pred_chap_cover_rf_corr$predicted)
+```
+
+
+##### Decision tree
+
+```{r, warning= FALSE, message= FALSE}
+set.seed(123)
+chap_cover_model <- partykit::ctree(chaparral_cover_change ~., data = train_chap_cover_corr)
+predicted_chap_cover <- chap_cover_model %>% 
+  predict(test_chap_cover_corr)
+chap_cover_confusion <- table(test_chap_cover_corr$chaparral_cover_change, predicted_chap_cover)
+RMSE(test_chap_cover_corr$chaparral_cover_change, predicted_chap_cover)
+chap_cover_tree_names <- train_chap_cover_corr %>% 
+  rename("maximum January VPD" = "max_vpd_jan") %>% 
+  rename("mean annual \n precipitation" = "precipitation") %>% 
+  rename("distance from roads" = "road_dist")
+chap_cover_model <- partykit::ctree(chaparral_cover_change ~., data = chap_cover_tree_names)
+chap_cover_tree <- ggparty(chap_cover_model) +
+  geom_edge() +
+  geom_edge_label(mapping = aes(label = paste(substr(breaks_label, start = 1, stop = 15))),
+                  id = c(2,5,6,9),
+                  size = 7,
+                  shift = 0.5)+
+  geom_edge_label(mapping = aes(label = paste(substr(breaks_label, start = 1, stop = 15))),
+                  id = c(3,4,7,8,10,11),
+                  size = 7,
+                  shift = 0.75)+
+  geom_node_splitvar(size = 8, label.size = 0) +
+  geom_node_plot(gglist = list(geom_boxplot(aes(y = chaparral_cover_change)),
+                               theme_classic(),
+                               theme(text = element_text(size = 35)),
+                               theme(axis.text.x = element_blank(),
+                                     axis.ticks = element_blank()),
+                               labs(y = "chaparral cover \n change (%)")),
+                 shared_axis_labels = TRUE)
+
+chap_cover_tree
+
+figure5 <- wrap_elements(full = chap_cover_rf_plot_corr)/wrap_elements(full = chap_cover_tree) +
+  plot_layout( widths = unit(c(12), c('in')),
+               heights = unit(c(12), c('in'))) +
+  plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(size = 35)) 
+figure5
+
+```
+
+##### Regression tests
+
+```{r}
+chaparral_cover_change_southwestness <- lm(chaparral_cover_change ~ southwestness, data = chaparral_cover_continuous_corr)
+chaparral_cover_change_slope <- lm(chaparral_cover_change ~ slope, data = chaparral_cover_continuous_corr)
+chaparral_cover_change_solar_radiation_summer <- lm(chaparral_cover_change ~ solar_radiation_summer, data = chaparral_cover_continuous_corr)
+chaparral_cover_change_solar_radiation_winter <- lm(chaparral_cover_change ~ solar_radiation_winter, data = chaparral_cover_continuous_corr)
+chaparral_cover_change_road_dist <- lm(chaparral_cover_change ~ road_dist, data = chaparral_cover_continuous_corr)
+chaparral_cover_change_precipitation <- lm(chaparral_cover_change ~ precipitation, data = chaparral_cover_continuous_corr)
+chaparral_cover_change_max_vpd_jan <- lm(chaparral_cover_change ~ max_vpd_jan, data = chaparral_cover_continuous_corr)
+chaparral_cover_change_max_vpd_aug <- lm(chaparral_cover_change ~ max_vpd_aug, data = chaparral_cover_continuous_corr)
+chaparral_cover_change_available_Water_supply <- lm(chaparral_cover_change ~ available_water_supply, data = chaparral_cover_continuous_corr)
+chaparral_cover_change_organic_matter <- lm(chaparral_cover_change ~ organic_matter, data = chaparral_cover_continuous_corr)
+chaparral_cover_change_clay <- lm(chaparral_cover_change ~ clay, data = chaparral_cover_continuous_corr)
+chaparral_cover_change_silt <- lm(chaparral_cover_change ~ silt, data = chaparral_cover_continuous_corr)
+min_return_interval_34 <- chaparral_cover_continuous_corr %>% 
+  filter(min_return_interval <= 34)
+chaparral_cover_change_min_return_interval_34 <- lm(chaparral_cover_change ~ min_return_interval, data = min_return_interval_34)
+chaparral_cover_change_min_return_interval <- lm(chaparral_cover_change ~ min_return_interval, data = chaparral_cover_continuous_corr)
+chaparral_cover_change_min_anomaly <- lm(chaparral_cover_change ~ min_anomaly, data = chaparral_cover_continuous_corr)
+
+chaparral_cover_change_southwestness 
+chaparral_cover_change_slope
+chaparral_cover_change_solar_radiation_summer 
+chaparral_cover_change_solar_radiation_winter 
+chaparral_cover_change_road_dist 
+chaparral_cover_change_precipitation 
+chaparral_cover_change_max_vpd_jan 
+chaparral_cover_change_max_vpd_aug 
+chaparral_cover_change_available_Water_supply
+chaparral_cover_change_organic_matter 
+chaparral_cover_change_clay 
+chaparral_cover_change_silt
+chaparral_cover_change_min_return_interval_34 
+chaparral_cover_change_min_return_interval 
+chaparral_cover_change_min_anomaly 
+
+southwestness_lm <- glance(chaparral_cover_change_southwestness)
+slope_lm <- glance(chaparral_cover_change_slope)
+solar_radiation_summer_lm <- glance(chaparral_cover_change_solar_radiation_summer)
+solar_radiation_winter_lm <- glance(chaparral_cover_change_solar_radiation_winter)
+road_dist_lm <- glance(chaparral_cover_change_road_dist)
+precipitation_lm <- glance(chaparral_cover_change_precipitation)
+max_vpd_jan_lm <- glance(chaparral_cover_change_max_vpd_jan)
+max_vpd_aug_lm <- glance(chaparral_cover_change_max_vpd_aug)
+available_water_supply_lm <- glance(chaparral_cover_change_available_Water_supply)
+organic_matter_lm <- glance(chaparral_cover_change_organic_matter)
+clay_lm <- glance(chaparral_cover_change_clay)
+silt_lm <- glance(chaparral_cover_change_silt)
+min_return_interval_34_lm <- glance(chaparral_cover_change_min_return_interval_34)
+min_return_interval_lm <- glance(chaparral_cover_change_min_return_interval)
+min_anomaly_lm <- glance(chaparral_cover_change_min_anomaly)
+
+southwestness_lm
+slope_lm 
+solar_radiation_summer_lm 
+solar_radiation_winter_lm 
+road_dist_lm 
+precipitation_lm 
+max_vpd_jan_lm 
+max_vpd_aug_lm 
+available_water_supply_lm 
+organic_matter_lm 
+clay_lm 
+silt_lm 
+min_return_interval_34_lm
+min_return_interval_lm
+min_anomaly_lm 
+
+
+```
+
+
+#### Chaparral conversion to grass
+
+##### Random Forest 
+
+```{r, message=FALSE, warning= FALSE}
+set.seed(123)
+chap_grass <- veg_enviro_fire_drought %>% 
+  filter(dominant_veg_1930 == "chaparral" & dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  dplyr::select("dominant_veg_2009",
+                "secondary_cover_1930",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox", 
+                "solar_radiation_winter", 
+                "road_dist", 
+                "precipitation", 
+                "max_temp", 
+                "mean_temp", 
+                "min_temp",
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly")
+training_samples <- chap_grass$dominant_veg_2009 %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+train_chap <- chap_grass[training_samples, ]
+test_chap <- chap_grass[-training_samples, ]
+
+set.seed(123)
+random_chap <- train_chap %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+random_test <- test_chap %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+set.seed(123)
+chap_rf <- randomForest(dominant_veg_2009 ~., 
+                        data = random_chap, 
+                        importance = TRUE, 
+                        type = prob,
+                        ntree= 900, 
+                        mtry = 6)
+chap_rf
+pred_chap_rf <- predict(chap_rf, random_test, type = "prob") %>% 
+  data.frame() %>% 
+  mutate(conversion = case_when(chaparral > 0.5 ~ "chaparral",
+                                grass > 0.5 ~ "grass"))
+rf_chap_confusion_table <- table(random_test$dominant_veg_2009, pred_chap_rf$conversion)
+Kappa(rf_chap_confusion_table)
+
+chap_rf_mda <- data.frame(chap_rf[["importance"]]) %>% 
+  dplyr::select("MeanDecreaseAccuracy") %>% 
+  rownames_to_column(var = "variables")
+
+chap_rf_plot <- ggplot(chap_rf_mda, aes(fct_reorder(variables, MeanDecreaseAccuracy), MeanDecreaseAccuracy))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Mean decrease in accuracy")+
+  theme_classic()+
+  theme(text = element_text(size = 10))
+chap_rf_plot
+a5_s4 <- chap_rf_plot
+```
+
+##### Getting Rid of Correlated variables
+
+```{r, message=FALSE, warning= FALSE}
+set.seed(123)
+chap_grass_corr <- chap_grass %>%
+  dplyr::select("dominant_veg_2009",
+                "secondary_cover_1930",
+                "southwestness",
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_winter",
+                "road_dist",
+                "precipitation",
+                "max_vpd_jan",
+                "max_vpd_aug",
+                "silt",
+                "clay",
+                "available_water_supply",
+                "organic_matter",
+                "min_return_interval",
+                "min_anomaly")
+set.seed(123)
+training_samples <- chap_grass_corr$dominant_veg_2009 %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+train_chap_corr <- chap_grass_corr[training_samples, ]
+test_chap_corr <- chap_grass_corr[-training_samples, ]
+
+set.seed(123)
+random_chap_corr <- train_chap_corr %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+random_test_corr <- test_chap_corr %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+
+
+for (x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(random_chap_corr[-1],
+       as.factor(random_chap_corr$dominant_veg_2009), 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+
+```{r}
+
+set.seed(123)
+chap_rf_corr <- randomForest(dominant_veg_2009 ~., 
+                        data = random_chap_corr, 
+                        importance = TRUE, 
+                        type = prob,
+                        ntree=900, 
+                        mtry = 2)
+chap_rf_corr
+pred_chap_rf_corr <- predict(chap_rf_corr, random_test_corr, type = "prob") %>% 
+  data.frame() %>% 
+  mutate(conversion = case_when(chaparral > 0.5 ~ "chaparral",
+                                grass > 0.5 ~ "grass"))
+rf_chap_confusion_table_corr <- table(random_test_corr$dominant_veg_2009, pred_chap_rf_corr$conversion)
+Kappa(rf_chap_confusion_table_corr)
+
+chap_rf_mda_corr <- data.frame(chap_rf_corr[["importance"]]) %>% 
+  dplyr::select("MeanDecreaseAccuracy") %>% 
+  rownames_to_column(var = "variables") %>% 
+  mutate(variables = str_replace(variables, "precipitation", "mean annual \n precipitation"),
+         variables = str_replace(variables, "min_anomaly", "minimum postfire \n precipitation anomaly"),
+         variables = str_replace(variables, "secondary_cover_1930", "percent secondary \n cover in 1930"),
+         variables = str_replace(variables, "clay", "percent clay"),
+         variables = str_replace(variables, "silt", "percent silt"),
+         variables = str_replace(variables, "solar_radiation_winter", "winter solar radiation"),
+         variables = str_replace(variables, "min_return_interval", "minimum fire \n return interval"),
+         variables = str_replace(variables, "road_dist", "distance from roads"),
+         variables = str_replace(variables, "solar_radiation_summer", "summer solar radiation"),
+         variables = str_replace(variables, "max_vpd_aug", "maximum August VPD"),
+         variables = str_replace(variables, "max_vpd_jan", "maximum January VPD"),
+         variables = str_replace(variables, "organic_matter", "percent organic matter"),
+         variables = str_replace_all(variables, "_", " ")) 
+
+chap_rf_plot_corr <- ggplot(chap_rf_mda_corr, aes(fct_reorder(variables, MeanDecreaseAccuracy), MeanDecreaseAccuracy))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Mean decrease in accuracy")+
+  theme_classic()+
+  theme(text = element_text(size = 30))
+chap_rf_plot_corr
+
+
+```
+
+
+
+##### Decision tree
+
+```{r, message= FALSE, warning= FALSE}
+set.seed(123)
+chap_model <- partykit::ctree(as.factor(dominant_veg_2009) ~., data = train_chap_corr)
+predicted_chap <- chap_model %>% predict(test_chap_corr)
+chap_confusion <- table(test_chap_corr$dominant_veg_2009, predicted_chap)
+Kappa(chap_confusion)
+tree_chap_conversion <- train_chap_corr %>%
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009)) %>% 
+  rename("percent secondary cover \n in 1930" = "secondary_cover_1930") %>% 
+  rename("maximum January VPD" = "max_vpd_jan") %>% 
+  rename("mean annual \n precipitation" = "precipitation") %>% 
+  rename("distance from roads" = "road_dist") %>% 
+  rename("percent clay" = "clay")
+
+chap_model <- partykit::ctree(dominant_veg_2009 ~., data = tree_chap_conversion)
+chap_grass_tree <- ggparty(chap_model) +
+  geom_edge() +
+  geom_edge_label(mapping = aes(label = paste(substr(breaks_label, start = 1, stop = 15))),
+                  ids = c(5,6,12,13),
+                  shift = 0.75,
+                  size = 7) +
+  geom_edge_label(mapping = aes(label = paste(substr(breaks_label, start = 1, stop = 15))),
+                  ids = c(1,2,3,4,7,8,9,10,11),
+                  size = 7) +
+  geom_node_splitvar(size = 8, label.size = 0)+
+  geom_node_plot(gglist = list(geom_bar(aes(x = "", fill = dominant_veg_2009),
+                                        position = position_fill()),
+                               scale_fill_brewer(palette = "PuBuGn"),
+                               theme_classic(),
+                               theme(text = element_text(size = 30),
+                                     axis.title.y = element_text(margin = ggplot2::margin(r = 50))),
+                               theme(axis.text.x = element_blank(),
+                                     axis.ticks = element_blank()),
+                               labs(fill = "Vegetation type",
+                                    y = "Proportion of \n dominant vegetation",
+                                    x ="")),
+                 shared_axis_labels = TRUE)
+chap_grass_tree
+
+figure6 <- wrap_elements(full = chap_rf_plot_corr)/wrap_elements(full = chap_grass_tree) +
+  plot_layout( widths = unit(c(12), c('in')),
+               heights = unit(c(12), c('in'))) +
+  plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(size = 35))  
+```
+
+##### GLMS
+
+```{r}
+chap_conversion_secondary_cover <- glm(family = "binomial", as.factor(dominant_veg_2009)~secondary_cover_1930, data = chap_grass_corr)
+chap_conversion_southwestness <- glm(family = "binomial", as.factor(dominant_veg_2009)~southwestness, data = chap_grass_corr)
+chap_conversion_slope <- glm(family = "binomial", as.factor(dominant_veg_2009)~slope, data = chap_grass_corr)
+chap_conversion_solar_radiation_summer <- glm(family = "binomial", as.factor(dominant_veg_2009)~solar_radiation_summer, data = chap_grass_corr)
+chap_conversion_solar_radiation_winter <- glm(family = "binomial", as.factor(dominant_veg_2009)~solar_radiation_winter, data = chap_grass_corr)
+chap_conversion_road_dist <- glm(family = "binomial", as.factor(dominant_veg_2009)~road_dist, data = chap_grass_corr)
+chap_conversion_precipitation <- glm(family = "binomial", as.factor(dominant_veg_2009)~precipitation, data = chap_grass_corr)
+chap_conversion_max_vpd_jan <- glm(family = "binomial", as.factor(dominant_veg_2009)~max_vpd_jan, data = chap_grass_corr)
+chap_conversion_max_vpd_aug <- glm(family = "binomial", as.factor(dominant_veg_2009)~max_vpd_aug, data = chap_grass_corr)
+chap_conversion_silt <- glm(family = "binomial", as.factor(dominant_veg_2009)~silt, data = chap_grass_corr)
+chap_conversion_clay <- glm(family = "binomial", as.factor(dominant_veg_2009)~clay, data = chap_grass_corr)
+chap_conversion_available_water_supply <- glm(family = "binomial", as.factor(dominant_veg_2009)~available_water_supply, data = chap_grass_corr)
+chap_conversion_organic_matter <- glm(family = "binomial", as.factor(dominant_veg_2009)~organic_matter, data = chap_grass_corr)
+chap_conversion_min_return_interval <- glm(family = "binomial", as.factor(dominant_veg_2009)~min_return_interval, data = chap_grass_corr)
+chap_conversion_min_anomaly <- glm(family = "binomial", as.factor(dominant_veg_2009)~min_anomaly, data = chap_grass_corr)
+
+summary(chap_conversion_secondary_cover)
+summary(chap_conversion_southwestness)
+summary(chap_conversion_slope)
+summary(chap_conversion_solar_radiation_summer)
+summary(chap_conversion_solar_radiation_winter)
+summary(chap_conversion_road_dist)
+summary(chap_conversion_precipitation)
+summary(chap_conversion_max_vpd_jan)
+summary(chap_conversion_max_vpd_aug)
+summary(chap_conversion_silt)
+summary(chap_conversion_clay)
+summary(chap_conversion_available_water_supply)
+summary(chap_conversion_organic_matter)
+summary(chap_conversion_min_return_interval)
+summary(chap_conversion_min_anomaly)
+```
+
+
+
+##### Comparisons of Means/medians and effect size for top variables
+
+```{r, warning=FALSE, message=FALSE}
+secondary_cover_chaparral <- two_sample_test(chap_grass,
+                                             x = dominant_veg_2009,
+                                             y = secondary_cover_1930,
+                                             type = "np",
+                                             output = "dataframe")
+
+southwestness_chaparral <- two_sample_test(chap_grass,
+                                           x = dominant_veg_2009,
+                                           y = southwestness,
+                                           type = "np",
+                                           output = "dataframe")
+slope_chaparral <- two_sample_test(chap_grass,
+                                           x = dominant_veg_2009,
+                                           y = slope,
+                                           type = "p",
+                                           output = "dataframe")
+
+solar_radiation_summer_chaparral <-two_sample_test(chap_grass,
+                                         x = dominant_veg_2009,
+                                         y = solar_radiation_summer, 
+                                         type = "p",
+                                         effsize.type = "d",
+                                         output = "dataframe")
+solar_radiation_winter_chaparral <- two_sample_test(chap_grass,
+                                         x = dominant_veg_2009,
+                                         y = solar_radiation_winter, 
+                                         type = "p",
+                                         effsize.type = "d",
+                                         output = "dataframe")
+
+road_distance_chaparral <- two_sample_test(chap_grass,
+                                           x = dominant_veg_2009,
+                                           y = road_dist,
+                                           type = "np",
+                                           output = "dataframe")
+
+precipitation_chaparral <- two_sample_test(chap_grass,
+                                           x = dominant_veg_2009,
+                                           y = precipitation,
+                                           type = "np",
+                                           output = "dataframe")
+
+max_vpd_jan_chaparral <- two_sample_test(chap_grass,
+                                         x = dominant_veg_2009,
+                                         y = max_vpd_jan, 
+                                         type = "np",
+                                         output = "dataframe")
+
+max_vpd_aug_chaparral <- two_sample_test(chap_grass,
+                                         x = dominant_veg_2009,
+                                         y = max_vpd_aug, 
+                                         type = "np",
+                                         output = "dataframe")
+
+clay_chaparral <- two_sample_test(chap_grass,
+                                  x = dominant_veg_2009,
+                                  y = clay,
+                                  type = "np",
+                                  output = "dataframe")
+
+silt_chaparral <- two_sample_test(chap_grass,
+                                  x = dominant_veg_2009,
+                                  y = silt, 
+                                  type = "np",
+                                  output = "dataframe")
+
+available_water_supply_chaparral <- two_sample_test(chap_grass,
+                                                x = dominant_veg_2009,
+                                                y = available_water_supply, 
+                                                type = "np",
+                                                output = "dataframe")
+
+organic_matter_chaparral <- two_sample_test(chap_grass,
+                                                x = dominant_veg_2009,
+                                                y = organic_matter, 
+                                                type = "np",
+                                                output = "dataframe")
+min_anomaly_chaparral <- two_sample_test(chap_grass,
+                                                x = dominant_veg_2009,
+                                                y = min_anomaly, 
+                                                type = "np",
+                                                output = "dataframe")
+
+mean_median_chaparral <- chap_grass %>% 
+  group_by(dominant_veg_2009) %>% 
+  summarise(secondary_cover_1930 = median(secondary_cover_1930, na.rm = TRUE),
+            southwestness = median(southwestness, na.rm = TRUE),
+            slope = median(slope, na.rm = TRUE),
+            solar_radiation_summer = mean(solar_radiation_summer, na.rm = TRUE),
+            solar_radiation_winter = mean(solar_radiation_winter, na.rm = TRUE),
+            road_dist = median(road_dist, na.rm = TRUE),
+            precipitation = median(precipitation, na.rm = TRUE),
+            max_vpd_jan = median(max_vpd_jan, na.rm = TRUE),
+            max_vpd_aug = median(max_vpd_aug, na.rm = TRUE),
+            clay = median(clay, na.rm = TRUE),
+            silt = median(silt, na.rm = TRUE),
+            available_water_supply = median(available_water_supply, na.rm = TRUE),
+            organic_matter = median(organic_matter, na.rm = TRUE),
+            min_anomaly = median(min_anomaly, na.rm = TRUE)) %>% 
+  pivot_longer(cols = 2:15,
+               names_to = "variable")
+
+mean_median_chaparral_chaparral <- mean_median_chaparral %>% 
+  filter(dominant_veg_2009 == "chaparral") %>% 
+  rename(chaparral_cover = value)
+
+mean_median_chaparral_grass <- mean_median_chaparral %>% 
+  filter(dominant_veg_2009 == "grass") %>% 
+  rename(grass_cover = value)
+
+chaparral_grass_stats <- bind_rows(secondary_cover_chaparral, southwestness_chaparral) %>%
+  bind_rows(slope_chaparral) %>% 
+  bind_rows(solar_radiation_summer_chaparral) %>% 
+  bind_rows(solar_radiation_winter_chaparral) %>%
+  bind_rows(road_distance_chaparral) %>% 
+  bind_rows(precipitation_chaparral) %>% 
+  bind_rows(max_vpd_jan_chaparral) %>% 
+  bind_rows(max_vpd_aug_chaparral) %>% 
+  bind_rows(clay_chaparral) %>%
+  bind_rows(silt_chaparral) %>%
+  bind_rows(available_water_supply_chaparral) %>%
+  bind_rows(organic_matter_chaparral) %>%
+  bind_rows(min_anomaly_chaparral) %>%
+  unite("variable", parameter1, term) %>% 
+  mutate(variable = str_replace(variable, "_NA","")) %>% 
+  mutate(variable = str_replace(variable, "NA_", "")) %>% 
+  full_join(mean_median_chaparral_chaparral, by = "variable") %>% 
+  full_join(mean_median_chaparral_grass, by = "variable") %>% 
+  rename("effect_size" = "estimate",
+         "effect_size_method" = "effectsize") %>% 
+  mutate(difference = chaparral_cover - grass_cover) %>% 
+  mutate(central_measure = case_when(method == "Wilcoxon rank sum test" ~ "median",
+                                     method == "Welch Two Sample t-test" ~ "mean")) %>% 
+  dplyr::select("variable","chaparral_cover", "grass_cover", "difference", "central_measure", "p.value", "method", "effect_size", "effect_size_method")
+kable(chaparral_grass_stats)
+
+chap_min_return_interval <- chap_grass %>% 
+ tabyl(dominant_veg_2009, min_return_interval) %>% 
+  adorn_percentages() %>% 
+  adorn_pct_formatting(digits = 2) %>% 
+  adorn_ns() 
+
+chap_min_return_interval_ct <- chap_grass %>% 
+  tabyl(dominant_veg_2009, min_return_interval) %>% 
+  column_to_rownames(var = "dominant_veg_2009")
+
+chap_min_return_interval_x2 <- chisq.test(chap_min_return_interval_ct)
+chap_min_return_interval
+chap_min_return_interval_x2
+```
+
+#### Chaparral cover change short-interval fire only
+
+##### Random Forest 
+
+```{r, message = FALSE, warning= FALSE}
+
+chaparral_cover_short_analysis <- veg_enviro_fire_drought %>% 
+  filter(dominant_veg_1930 == "chaparral") %>% 
+  filter(dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  mutate(chaparral_cover_2009 = case_when(dominant_veg_2009 == "chaparral" ~ as.numeric(dominant_cover_2009),
+                                          secondary_veg_2009 == "chaparral" ~ as.numeric(secondary_cover_2009),
+                                          TRUE ~ 100 - as.numeric(dominant_cover_2009) - as.numeric(secondary_cover_2009))) %>% 
+  mutate(chaparral_cover_change = chaparral_cover_2009 - dominant_cover_1930) %>% 
+  na.omit() %>% 
+  filter(min_return_interval < 81)
+
+chaparral_cover_short_continuous <- chaparral_cover_short_analysis %>% 
+ dplyr::select("chaparral_cover_change",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox",
+                "solar_radiation_winter", 
+                "road_dist",
+                "precipitation",
+                "max_temp", 
+                "mean_temp",
+                "min_temp", 
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly")
+
+set.seed(123)
+
+training_short_samples <- chaparral_cover_short_continuous$chaparral_cover_change %>%  
+  createDataPartition(p = 0.8, list = FALSE)
+
+train_chap_short_cover <- chaparral_cover_short_continuous[training_short_samples, ]
+
+test_chap_short_cover <- chaparral_cover_short_continuous[-training_short_samples, ]
+
+set.seed(123)
+
+random_chap_short_cover <- train_chap_short_cover 
+
+random_chap_short_cover_test <- test_chap_short_cover
+
+
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(random_chap_short_cover[-1],
+       random_chap_short_cover$chaparral_cover_change, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r, message = FALSE, warning= FALSE}
+chap_cover_short_drought_rf <- randomForest(chaparral_cover_change ~., data = train_chap_short_cover,
+                              type = prob,
+                              ntree = 1000,
+                              mtry = 10,
+                              importance = TRUE)
+chap_cover_short_drought_rf
+
+set.seed(123)
+pred_chap_cover_short_drought_rf <- predict(chap_cover_short_drought_rf, random_chap_short_cover_test) %>% 
+  data.frame() %>% 
+  rename("predicted" = ".") %>% 
+  bind_cols(random_chap_short_cover_test)
+
+ggplot(pred_chap_cover_short_drought_rf, aes(x = predicted, y = chaparral_cover_change)) +
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+ 
+rf_chap_cover_short_confusion_table <- table(random_chap_short_cover_test$chaparral_cover_change, pred_chap_cover_short_drought_rf$predicted)
+
+chap_cover_short_drought_rf_mda <- data.frame(chap_cover_short_drought_rf$importance) %>% 
+  dplyr::select("X.IncMSE") %>% 
+  rownames_to_column(var = "variables")
+
+chap_cover_short_drought_rf_plot <- ggplot(chap_cover_short_drought_rf_mda, aes(fct_reorder(variables, X.IncMSE),X.IncMSE))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Percent increase in \n mean square error")+
+  theme_classic()+
+  theme(text = element_text(size = 10))
+chap_cover_short_drought_rf_plot
+a5_s2 <- chap_cover_short_drought_rf_plot
+RMSE(test_chap_short_cover$chaparral_cover_change, pred_chap_cover_short_drought_rf$predicted)
+
+```
+
+
+
+##### Getting Rid of Correlated variables
+
+```{r, message = FALSE, warning= FALSE}
+chaparral_cover_analysis_short_corr <- veg_enviro_fire_drought %>% 
+  filter(dominant_veg_1930 == "chaparral") %>% 
+  filter(dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  mutate(chaparral_cover_2009 = case_when(dominant_veg_2009 == "chaparral" ~ as.numeric(dominant_cover_2009),
+                                          secondary_veg_2009 == "chaparral" ~ as.numeric(secondary_cover_2009),
+                                          TRUE ~ 100 - as.numeric(dominant_cover_2009) - as.numeric(secondary_cover_2009))) %>% 
+  mutate(chaparral_cover_change = chaparral_cover_2009 - dominant_cover_1930) %>% 
+  na.omit() %>% 
+  filter(min_return_interval < 81)
+
+chaparral_cover_short_continuous_corr <- chaparral_cover_analysis_short_corr %>% 
+  dplyr::select("chaparral_cover_change",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer",
+                "solar_radiation_winter",
+                "road_dist",
+                "precipitation",
+                "max_vpd_jan",
+                "max_vpd_aug",
+                "available_water_supply",
+                "organic_matter",
+                "clay",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly")
+set.seed(123)
+
+training_short_samples <- chaparral_cover_short_continuous_corr$chaparral_cover_change %>%  
+  createDataPartition(p = 0.8, list = FALSE)
+
+train_chap_short_cover_corr <- chaparral_cover_short_continuous_corr[training_short_samples, ]
+
+test_chap_short_cover_corr <- chaparral_cover_short_continuous_corr[-training_short_samples, ]
+
+set.seed(123)
+
+random_chap_cover_short_corr <- train_chap_short_cover_corr 
+
+random_chap_cover_short_test_corr <- test_chap_short_cover_corr
+
+
+
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+  tuneRF(random_chap_cover_short_corr[-1],
+       random_chap_cover_short_corr$chaparral_cover_change, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+
+```{r, message = FALSE, warning= FALSE}
+set.seed(123)
+
+chap_cover_short_rf_corr <- randomForest(chaparral_cover_change ~., data = train_chap_short_cover_corr,
+                              type = prob,
+                              ntree = 1000,
+                              mtry = 7,
+                              importance = TRUE)
+chap_cover_short_rf_corr
+
+
+pred_chap_cover_short_rf_corr <- predict(chap_cover_short_rf_corr, random_chap_cover_short_test_corr) %>% 
+  data.frame() %>% 
+  rename("predicted" = ".") %>% 
+  bind_cols(random_chap_cover_short_test_corr)
+
+ggplot(pred_chap_cover_short_rf_corr, aes(x = predicted, y = chaparral_cover_change)) +
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+ 
+rf_chap_cover_short_confusion_table_corr <- table(random_chap_cover_short_test_corr$chaparral_cover_change, pred_chap_cover_short_rf_corr$predicted)
+
+chap_cover_short_rf_mda_corr <- data.frame(chap_cover_short_rf_corr$importance) %>% 
+  dplyr::select("X.IncMSE") %>% 
+  rownames_to_column(var = "variables")
+chap_cover_short_graph <- chap_cover_short_rf_mda_corr %>% 
+  mutate(variables = str_replace(variables, "solar_radiation_summer", "summer solar radiation"),
+         variables = str_replace(variables, "solar_radiation_winter", "winter solar radiation"),
+         variables = str_replace(variables, "road_dist", "distance from roads"), 
+         variables = str_replace(variables, "precipitation", "mean annual \n precipitation"),
+         variables = str_replace(variables, "max_vpd_jan", "maximum January VPD"),
+         variables = str_replace(variables, "max_vpd_aug", "maximum August VPD"),
+         variables = str_replace_all(variables, "_", " "),
+         variables = str_replace(variables, "organic matter", "percent organic matter"), 
+         variables = str_replace(variables, "clay", "percent clay"),
+         variables = str_replace(variables, "silt", "percent silt"),
+         variables = str_replace(variables, "number fires", "number of fires"),
+         variables = str_replace(variables, "min return interval", "minimum fire \n return interval"),
+         variables = str_replace(variables, "min anomaly", "minimum postfire \n precipitation anomaly"))
+
+chap_cover_short_rf_plot_corr <- ggplot(chap_cover_short_graph, aes(fct_reorder(variables, X.IncMSE),X.IncMSE))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Percent increase in \n mean square error")+
+  theme_classic()+
+  theme(text = element_text(size = 35))
+chap_cover_short_rf_plot_corr
+RMSE(test_chap_short_cover_corr$chaparral_cover_change, pred_chap_cover_short_rf_corr$predicted)
+```
+
+
+##### Decision tree
+
+```{r, warning= FALSE, message= FALSE}
+set.seed(123)
+chap_cover_short_model <- partykit::ctree(chaparral_cover_change ~., data = train_chap_short_cover_corr)
+predicted_chap_cover_short <- chap_cover_short_model %>% 
+  predict(test_chap_short_cover_corr)
+chap_cover_short_confusion <- table(test_chap_short_cover_corr$chaparral_cover_change, predicted_chap_cover_short)
+RMSE(test_chap_short_cover_corr$chaparral_cover_change, predicted_chap_cover_short)
+tree_chap_short_cover <- train_chap_short_cover_corr %>% 
+  rename("maximum January VPD" = "max_vpd_jan")
+chap_cover_short_model <- partykit::ctree(chaparral_cover_change ~., data = tree_chap_short_cover)
+chap_cover_short_tree <- ggparty(chap_cover_short_model) +
+  geom_edge() +
+  geom_edge_label(mapping = aes(label = paste(substr(breaks_label, start = 1, stop = 15))),
+                  size = 10) +
+  geom_node_splitvar(size = 10, label.size = 0)+
+  geom_node_plot(gglist = list(geom_boxplot(aes(y = chaparral_cover_change)),
+                               theme_classic(),
+                               theme(axis.text.x = element_blank(),
+                                     axis.ticks = element_blank()),
+                               theme(text = element_text(size = 35)),
+                               labs(y = "chaparral cover \n change (%)")),
+                 shared_axis_labels = TRUE)
+
+chap_cover_short_tree
+a7_s1 <- wrap_elements(full = chap_cover_short_rf_plot_corr)/wrap_elements(full = chap_cover_short_tree) +
+  plot_layout(widths = unit(c(12), c("in")),
+              heights = unit(c(12), c("in"))) +
+  plot_annotation(tag_levels = "A")&theme(plot.tag = element_text(size = 35))
+```
+
+
+#### Chaparral Cover Change Long Interval Fire Only
+
+##### Random Forest 
+
+```{r, message = FALSE, warning= FALSE}
+
+chaparral_cover_long_analysis <- veg_enviro_fire_drought %>% 
+  filter(dominant_veg_1930 == "chaparral") %>% 
+  filter(dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  mutate(chaparral_cover_2009 = case_when(dominant_veg_2009 == "chaparral" ~ as.numeric(dominant_cover_2009),
+                                          secondary_veg_2009 == "chaparral" ~ as.numeric(secondary_cover_2009),
+                                          TRUE ~ 100 - as.numeric(dominant_cover_2009) - as.numeric(secondary_cover_2009))) %>% 
+  mutate(chaparral_cover_change = chaparral_cover_2009 - dominant_cover_1930) %>% 
+  na.omit() %>% 
+  filter(min_return_interval >= 81)
+
+chaparral_cover_long_continuous <- chaparral_cover_long_analysis %>% 
+ dplyr::select("chaparral_cover_change",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox",
+                "solar_radiation_winter", 
+                "road_dist",
+                "precipitation",
+                "max_temp", 
+                "mean_temp",
+                "min_temp", 
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "min_anomaly")
+
+set.seed(123)
+
+training_samples_long <- chaparral_cover_long_continuous$chaparral_cover_change %>%  
+  createDataPartition(p = 0.8, list = FALSE)
+
+train_chap_cover_long <- chaparral_cover_long_continuous[training_samples_long, ]
+
+test_chap_cover_long <- chaparral_cover_long_continuous[-training_samples_long, ]
+
+set.seed(123)
+
+random_chap_cover_long <- train_chap_cover_long 
+
+random_chap_cover_test_long <- test_chap_cover_long
+
+
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(random_chap_cover_long[-1],
+       random_chap_cover_long$chaparral_cover_change, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r, message = FALSE, warning= FALSE}
+chap_cover_drought_rf_long <- randomForest(chaparral_cover_change ~., data = train_chap_cover_long,
+                              type = prob,
+                              ntree = 600,
+                              mtry = 4,
+                              importance = TRUE)
+chap_cover_drought_rf_long
+
+
+pred_chap_cover_drought_rf_long <- predict(chap_cover_drought_rf_long, random_chap_cover_test_long) %>% 
+  data.frame() %>% 
+  rename("predicted" = ".") %>% 
+  bind_cols(random_chap_cover_test_long)
+
+ggplot(pred_chap_cover_drought_rf_long, aes(x = predicted, y = chaparral_cover_change)) +
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+ 
+rf_chap_cover_confusion_table_long <- table(random_chap_cover_test_long$chaparral_cover_change, pred_chap_cover_drought_rf_long$predicted)
+
+chap_cover_drought_rf_mda_long <- data.frame(chap_cover_drought_rf_long$importance) %>% 
+  dplyr::select("X.IncMSE") %>% 
+  rownames_to_column(var = "variables")
+
+chap_cover_drought_rf_plot_long <- ggplot(chap_cover_drought_rf_mda_long, aes(fct_reorder(variables, X.IncMSE),X.IncMSE))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Percent increase in \n mean square error")+
+  theme_classic()+
+  theme(text = element_text(size = 10))
+chap_cover_drought_rf_plot_long
+a5_s3 <- chap_cover_drought_rf_plot_long
+RMSE(test_chap_cover_long$chaparral_cover_change, pred_chap_cover_drought_rf_long$predicted)
+
+```
+
+##### Getting Rid of Correlated variables
+
+```{r, message = FALSE, warning= FALSE}
+chaparral_cover_analysis_long_corr <- veg_enviro_fire_drought %>% 
+  filter(dominant_veg_1930 == "chaparral") %>% 
+  filter(dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  mutate(chaparral_cover_2009 = case_when(dominant_veg_2009 == "chaparral" ~ as.numeric(dominant_cover_2009),
+                                          secondary_veg_2009 == "chaparral" ~ as.numeric(secondary_cover_2009),
+                                          TRUE ~ 100 - as.numeric(dominant_cover_2009) - as.numeric(secondary_cover_2009))) %>% 
+  mutate(chaparral_cover_change = chaparral_cover_2009 - dominant_cover_1930) %>% 
+  na.omit() %>% 
+  filter(min_return_interval >= 81)
+
+chaparral_cover_continuous_corr_long <- chaparral_cover_analysis_long_corr %>% 
+  dplyr::select("chaparral_cover_change",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer",
+                "solar_radiation_winter",
+                "road_dist",
+                "precipitation",
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "clay",
+                "silt",
+                "min_anomaly")
+set.seed(123)
+
+training_samples_long <- chaparral_cover_continuous_corr_long$chaparral_cover_change %>%  
+  createDataPartition(p = 0.8, list = FALSE)
+
+train_chap_cover_corr_long <- chaparral_cover_continuous_corr_long[training_samples_long, ]
+
+test_chap_cover_corr_long <- chaparral_cover_continuous_corr_long[-training_samples_long, ]
+
+set.seed(123)
+
+random_chap_cover_corr_long <- train_chap_cover_corr_long 
+
+random_chap_cover_test_corr_long <- test_chap_cover_corr_long
+
+
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(random_chap_cover_corr_long[-1],
+       random_chap_cover_corr_long$chaparral_cover_change, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+
+```{r, message = FALSE, warning= FALSE}
+set.seed(123)
+
+chap_cover_rf_corr_long <- randomForest(chaparral_cover_change ~., data = train_chap_cover_corr_long,
+                              type = prob,
+                              ntree = 800,
+                              mtry = 2,
+                              importance = TRUE)
+chap_cover_rf_corr_long
+
+
+pred_chap_cover_rf_corr_long <- predict(chap_cover_rf_corr_long, random_chap_cover_test_corr_long) %>% 
+  data.frame() %>% 
+  rename("predicted" = ".") %>% 
+  bind_cols(random_chap_cover_test_corr_long)
+
+ggplot(pred_chap_cover_rf_corr_long, aes(x = predicted, y = chaparral_cover_change)) +
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+ 
+rf_chap_cover_confusion_table_corr_long <- table(random_chap_cover_test_corr_long$chaparral_cover_change, pred_chap_cover_rf_corr_long$predicted)
+
+chap_cover_rf_mda_corr_long <- data.frame(chap_cover_rf_corr_long$importance) %>% 
+  dplyr::select("X.IncMSE") %>% 
+  rownames_to_column(var = "variables") %>% 
+  mutate(variables = str_replace(variables, "road_dist", "distance from roads"),
+         variables = str_replace(variables, "precipitation", "mean annual \n precipitation"),
+         variables = str_replace(variables, "solar_radiation_winter", "winter solar radiation"),
+         variables = str_replace(variables, "solar_radiation_summer", "summer solar radiation"),
+         variables = str_replace(variables, "max_vpd_aug", "maximum August VPD"),
+          variables = str_replace(variables, "max_vpd_jan", "maximum January VPD"),
+         variables = str_replace(variables, "min_anomaly", "minimum postfire \n precipitation anomaly"),
+         variables = str_replace(variables, "silt", "percent silt"),
+         variables = str_replace(variables, "clay", "percent clay"))
+
+chap_cover_rf_plot_corr_long <- ggplot(chap_cover_rf_mda_corr_long, aes(fct_reorder(variables, X.IncMSE),X.IncMSE))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Percent increase in \n mean square error")+
+  theme_classic()+
+  theme(text = element_text(size = 35))
+chap_cover_rf_plot_corr_long
+RMSE(test_chap_cover_corr_long$chaparral_cover_change, pred_chap_cover_rf_corr_long$predicted)
+```
+
+
+##### Decision tree
+
+```{r, warning= FALSE, message= FALSE}
+set.seed(123)
+chap_cover_model_long <- partykit::ctree(chaparral_cover_change ~., data = train_chap_cover_corr_long)
+predicted_chap_cover_long <- chap_cover_model_long %>% 
+  predict(test_chap_cover_corr_long)
+chap_cover_confusion_long <- table(test_chap_cover_corr_long$chaparral_cover_change, predicted_chap_cover_long)
+RMSE(test_chap_cover_corr_long$chaparral_cover_change, predicted_chap_cover_long)
+tree_chap_cover_long <- train_chap_cover_corr_long %>% 
+  rename("distance from roads" = "road_dist")
+chap_cover_model_long <- partykit::ctree(chaparral_cover_change ~., data = tree_chap_cover_long)
+chap_cover_long_tree <- ggparty(chap_cover_model_long) +
+  geom_edge() +
+  geom_edge_label(mapping = aes(label = paste(substr(breaks_label, start = 1, stop = 15))),
+                  size = 10) +
+  geom_node_splitvar(size = 10, label.size = 0)+
+  geom_node_plot(gglist = list(geom_boxplot(aes(y = chaparral_cover_change)),
+                               theme_classic(),
+                               theme(axis.text.x = element_blank(),
+                                     axis.ticks = element_blank()),
+                               theme(text = element_text(size = 35),
+                                     axis.title.y = element_text(margin = ggplot2::margin(r = 50))),
+                               labs(y = "chaparral cover \n change (%)")),
+                 shared_axis_labels = TRUE)
+
+chap_cover_long_tree
+a7_s2 <- wrap_elements(full = chap_cover_rf_plot_corr_long)/wrap_elements(full = chap_cover_long_tree) +
+  plot_layout(widths = unit(c(12), c("in")),
+              heights = unit(c(12), c("in"))) +
+  plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(size = 35))
+```
+
+
+#### Chaparral conversion to grass short interval fire only
+
+##### Random Forest 
+
+```{r, message=FALSE, warning= FALSE}
+set.seed(123)
+chap_grass_short <- veg_enviro_fire_drought %>% 
+  filter(min_return_interval < 81) %>% 
+  filter(dominant_veg_1930 == "chaparral" & dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  dplyr::select("dominant_veg_2009",
+                "secondary_cover_1930",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox", 
+                "solar_radiation_winter", 
+                "road_dist", 
+                "precipitation", 
+                "max_temp", 
+                "mean_temp", 
+                "min_temp",
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly")
+training_samples_short <- chap_grass_short$dominant_veg_2009 %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+train_chap_short <- chap_grass_short[training_samples_short, ]
+test_chap_short <- chap_grass_short[-training_samples_short, ]
+
+set.seed(123)
+random_chap_short <- train_chap_short %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+random_test_short <- test_chap_short %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(random_chap_short[-1],
+       random_chap_short$dominant_veg_2009, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r, message=FALSE, warning= FALSE}
+set.seed(123)
+chap_rf_short <- randomForest(dominant_veg_2009 ~., 
+                        data = random_chap_short, 
+                        importance = TRUE, 
+                        type = prob,
+                        ntree= 500, 
+                        mtry = 3)
+chap_rf_short
+pred_chap_rf_short <- predict(chap_rf_short, random_test_short, type = "prob") %>% 
+  data.frame() %>% 
+  mutate(conversion = case_when(chaparral > 0.5 ~ "chaparral",
+                                grass > 0.5 ~ "grass"))
+rf_chap_confusion_table_short <- table(random_test_short$dominant_veg_2009, pred_chap_rf_short$conversion)
+Kappa(rf_chap_confusion_table_short)
+
+chap_rf_mda_short <- data.frame(chap_rf_short[["importance"]]) %>% 
+  dplyr::select("MeanDecreaseAccuracy") %>% 
+  rownames_to_column(var = "variables")
+
+chap_rf_plot_short <- ggplot(chap_rf_mda_short, aes(fct_reorder(variables, MeanDecreaseAccuracy), MeanDecreaseAccuracy))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Mean decrease in accuracy")+
+  theme_classic()+
+  theme(text= element_text(size = 10))
+chap_rf_plot_short
+a5_s5 <- chap_rf_plot_short
+
+```
+
+##### Getting Rid of Correlated variables
+
+```{r, message=FALSE, warning= FALSE}
+set.seed(123)
+chap_grass_corr_short <- chap_grass_short %>%
+  dplyr::select("dominant_veg_2009",
+                "secondary_cover_1930",
+                "southwestness",
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_winter",
+                "road_dist",
+                "precipitation",
+                "max_vpd_jan",
+                "max_vpd_aug",
+                "silt",
+                "clay",
+                "available_water_supply",
+                "organic_matter",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly")
+set.seed(123)
+training_samples_short <- chap_grass_corr_short$dominant_veg_2009 %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+train_chap_corr_short <- chap_grass_corr_short[training_samples_short, ]
+test_chap_corr_short <- chap_grass_corr_short[-training_samples_short, ]
+
+set.seed(123)
+random_chap_corr_short <- train_chap_corr_short %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+random_test_corr_short <- test_chap_corr_short %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(random_chap_corr_short[-1],
+       random_chap_corr_short$dominant_veg_2009, 
+       ntreeTry=500,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+
+```{r, message=FALSE, warning= FALSE}
+set.seed(123)
+chap_rf_corr_short <- randomForest(dominant_veg_2009 ~., 
+                        data = random_chap_corr_short, 
+                        importance = TRUE, 
+                        type = prob,
+                        ntree=500, 
+                        mtry = 9)
+chap_rf_corr_short
+pred_chap_rf_corr_short <- predict(chap_rf_corr_short, random_test_corr_short, type = "prob") %>% 
+  data.frame() %>% 
+  mutate(conversion = case_when(chaparral > 0.5 ~ "chaparral",
+                                grass > 0.5 ~ "grass"))
+rf_chap_confusion_table_corr_short <- table(random_test_corr_short$dominant_veg_2009, pred_chap_rf_corr_short$conversion)
+Kappa(rf_chap_confusion_table_corr_short)
+
+chap_rf_mda_corr_short <- data.frame(chap_rf_corr_short[["importance"]]) %>% 
+  dplyr::select("MeanDecreaseAccuracy") %>% 
+  rownames_to_column(var = "variables") %>% 
+  mutate(variables = str_replace(variables, "precipitation", "mean annual \n precipitation"),
+         variables = str_replace(variables, "min_anomaly", "minimum postfire \n precipitation anomaly"),
+         variables = str_replace(variables, "road_dist", "distance from roads"),
+         variables = str_replace(variables, "silt", "percent silt"),
+         variables = str_replace(variables, "clay", "percent clay"),
+         variables = str_replace(variables, "secondary_cover_1930", "percent secondary \n cover in 1930"),
+         variables = str_replace(variables, "solar_radiation_summer", "summer solar radiation"),
+         variables = str_replace(variables, "max_vpd_aug", "maximum August VPD"),
+         variables = str_replace(variables, "max_vpd_jan", "maximum January VPD"),
+         variables = str_replace(variables, "solar_radiation_winter", "winter solar radiation"),
+         variables = str_replace(variables, "min_return_interval", "minimum fire \n return interval"),
+         variables = str_replace(variables, "organic_matter", "percent organic matter"),
+         variables = str_replace(variables, "number_fires", "number of fires"),
+         variables = str_replace_all(variables, "_", " "))
+
+chap_rf_plot_corr_short <- ggplot(chap_rf_mda_corr_short, aes(fct_reorder(variables, MeanDecreaseAccuracy), MeanDecreaseAccuracy))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Mean decrease in accuracy")+
+  theme_classic()+
+  theme(text = element_text(size = 35))
+chap_rf_plot_corr_short
+
+```
+
+
+
+##### Decision tree
+
+```{r, message= FALSE, warning= FALSE}
+set.seed(123)
+chap_model_short <- partykit::ctree(as.factor(dominant_veg_2009) ~., data = train_chap_corr_short)
+predicted_chap_short <- chap_model_short %>% predict(test_chap_corr_short)
+chap_confusion_short <- table(test_chap_corr_short$dominant_veg_2009, predicted_chap_short)
+Kappa(chap_confusion_short)
+tree_chap_conversion_short <- train_chap_corr_short %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009)) %>% 
+  rename("mean annual precipitation" = "precipitation") %>% 
+  rename("percent clay" = "clay") %>% 
+  rename("percent secondary \n cover in 1930" = "secondary_cover_1930")
+
+chap_model_short <- partykit::ctree(dominant_veg_2009 ~., data = tree_chap_conversion_short)
+chap_grass_tree_short <- ggparty(chap_model_short) +
+  geom_edge() +
+  geom_edge_label(mapping = aes(label = paste(substr(breaks_label, start = 1, stop = 15))),
+                  ids = c(1,2,3,7,8,9,10),
+                  size = 8) +
+  geom_edge_label(mapping = aes(label = paste(substr(breaks_label, start = 1, stop = 15))),
+                  ids = c(4,5,6,11),
+                  size = 8,
+                  shift = 0.75)+
+  geom_node_splitvar(size = 10, label.size = 0)+
+  geom_node_plot(gglist = list(geom_bar(aes(x = "", fill = dominant_veg_2009),
+                                        position = position_fill()),
+                               scale_fill_brewer(palette = "PuBuGn"),
+                               theme_classic(),
+                               theme(text = element_text(size = 35),
+                                     axis.title.y = element_text(margin = ggplot2::margin(r = 50))),
+                               theme(axis.text.x = element_blank(),
+                                     axis.ticks = element_blank()),
+                               labs(fill = "Vegetation type",
+                                    y = "Proportion of \n dominant vegetation",
+                                    x ="")),
+                 shared_axis_labels = TRUE)
+chap_grass_tree_short
+a7_s3 <- wrap_elements(full = chap_rf_plot_corr_short)/wrap_elements(chap_grass_tree_short) +
+  plot_layout(widths = unit(c(12), c("in")),
+              heights = unit(c(12), c("in"))) +
+  plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(size = 35))
+```
+
+#### Chaparral conversion to grass long interval only
+
+##### Random Forest 
+
+
+```{r, message=FALSE, warning= FALSE}
+set.seed(123)
+chap_grass_long <- veg_enviro_fire_drought %>%
+  filter(min_return_interval >= 81) %>% 
+  filter(dominant_veg_1930 == "chaparral" & dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  dplyr::select("dominant_veg_2009",
+                "secondary_cover_1930",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox", 
+                "solar_radiation_winter", 
+                "road_dist", 
+                "precipitation", 
+                "max_temp", 
+                "mean_temp", 
+                "min_temp",
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "min_anomaly")
+training_samples_long <- chap_grass_long$dominant_veg_2009 %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+train_chap_long <- chap_grass_long[training_samples_long, ]
+test_chap_long <- chap_grass_long[-training_samples_long, ]
+
+set.seed(123)
+random_chap_long <- train_chap_long %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+random_test_long <- test_chap_long %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(random_chap_long[-1],
+       random_chap_long$dominant_veg_2009, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r, message=FALSE, warning= FALSE}
+set.seed(123)
+chap_rf_long <- randomForest(dominant_veg_2009 ~., 
+                        data = random_chap_long, 
+                        importance = TRUE, 
+                        type = prob,
+                        ntree= 800, 
+                        mtry = 2)
+chap_rf_long
+pred_chap_rf_long <- predict(chap_rf_long, random_test_long, type = "prob") %>% 
+  data.frame() %>% 
+  mutate(conversion = case_when(chaparral > 0.5 ~ "chaparral",
+                                grass > 0.5 ~ "grass"))
+rf_chap_confusion_table_long <- table(random_test_long$dominant_veg_2009, pred_chap_rf_long$conversion)
+Kappa(rf_chap_confusion_table_long)
+
+chap_rf_mda_long <- data.frame(chap_rf_long[["importance"]]) %>% 
+  dplyr::select("MeanDecreaseAccuracy") %>% 
+  rownames_to_column(var = "variables")
+
+chap_rf_plot_long <- ggplot(chap_rf_mda_long, aes(fct_reorder(variables, MeanDecreaseAccuracy), MeanDecreaseAccuracy))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Mean decrease in accuracy")+
+  theme_classic()+
+  theme(text = element_text(size = 10))
+chap_rf_plot_long
+a5_s6 <- chap_rf_plot_long
+```
+
+##### Getting Rid of Correlated variables
+
+```{r, message=FALSE, warning= FALSE}
+set.seed(123)
+chap_grass_corr_long <- chap_grass_long %>%
+  dplyr::select("dominant_veg_2009",
+                "secondary_cover_1930",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer",
+                "solar_radiation_winter",
+                "road_dist",
+                "precipitation",
+                "max_vpd_jan",
+                "max_vpd_aug",
+                "bulk_density",
+                "min_anomaly")
+set.seed(123)
+training_samples_long <- chap_grass_corr_long$dominant_veg_2009 %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+train_chap_corr_long <- chap_grass_corr_long[training_samples_long, ]
+test_chap_corr_long <- chap_grass_corr_long[-training_samples_long, ]
+
+set.seed(123)
+random_chap_corr_long <- train_chap_corr_long %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+random_test_corr_long <- test_chap_corr_long %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(random_chap_corr_long[-1],
+       random_chap_corr_long$dominant_veg_2009, 
+       ntreeTry=x, stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r, message=FALSE, warning= FALSE}
+set.seed(123)
+chap_rf_corr_long <- randomForest(dominant_veg_2009 ~., 
+                        data = random_chap_corr_long, 
+                        importance = TRUE, 
+                        type = prob,
+                        ntree=600, 
+                        mtry = 4)
+chap_rf_corr_long
+pred_chap_rf_corr_long <- predict(chap_rf_corr_long, random_test_corr_long, type = "prob") %>% 
+  data.frame() %>% 
+  mutate(conversion = case_when(chaparral > 0.5 ~ "chaparral",
+                                grass > 0.5 ~ "grass"))
+rf_chap_confusion_table_corr_long <- table(random_test_corr_long$dominant_veg_2009, pred_chap_rf_corr_long$conversion)
+Kappa(rf_chap_confusion_table_corr_long)
+
+chap_rf_mda_corr_long <- data.frame(chap_rf_corr_long[["importance"]]) %>% 
+  dplyr::select("MeanDecreaseAccuracy") %>% 
+  rownames_to_column(var = "variables") %>% 
+  mutate(variables = str_replace(variables, "secondary_cover_1930", "percent secondary \n cover in 1930"),
+         variables = str_replace(variables, "road_dist", "distance from roads"),
+         variables = str_replace(variables, "solar_radiation_summer", "summer solar radiation"),
+         variables = str_replace(variables, "solar_radiation_winter", "winter solar radiation"),
+         variables = str_replace(variables, "precipitation" , "mean annual \n precipitation"),
+         variables = str_replace(variables, "min_anomaly", "minimum postfire \n precipitation anomaly"),
+         variables = str_replace(variables, "mean_temp", "mean annual temperature"),
+         variables = str_replace_all(variables, "_", " "))
+
+chap_rf_plot_corr_long <- ggplot(chap_rf_mda_corr_long, aes(fct_reorder(variables, MeanDecreaseAccuracy), MeanDecreaseAccuracy))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Mean decrease in accuracy")+
+  theme_classic() +
+  theme(text = element_text(size = 35))
+chap_rf_plot_corr_long
+
+```
+
+
+
+##### Decision tree
+
+```{r, message= FALSE, warning= FALSE}
+set.seed(123)
+chap_model_long <- partykit::ctree(as.factor(dominant_veg_2009) ~., data = train_chap_corr_long)
+predicted_chap_long <- chap_model_long %>% predict(test_chap_corr_long)
+chap_confusion_long <- table(test_chap_corr_long$dominant_veg_2009, predicted_chap_long)
+Kappa(chap_confusion_long)
+tree_chap_conversion_long <- train_chap_corr_long %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009)) %>% 
+  rename("percent secondary \n cover in 1930" = "secondary_cover_1930")
+
+chap_model_long <- partykit::ctree(dominant_veg_2009 ~., data = tree_chap_conversion_long)
+chap_grass_tree_long <- ggparty(chap_model_long) +
+  geom_edge() +
+  geom_edge_label(mapping = aes(label = paste(substr(breaks_label, start = 1, stop = 14))),
+                  size = 10) +
+  geom_node_splitvar(size = 10, label.size = 0)+
+  geom_node_plot(gglist = list(geom_bar(aes(x = "", fill = dominant_veg_2009),
+                                        position = position_fill()),
+                               scale_fill_brewer(palette = "PuBuGn"),
+                               theme_classic(),
+                               theme(text = element_text(size = 35),
+                                     axis.title.y = element_text(margin = ggplot2::margin(r = 50))),
+                               theme(axis.text.x = element_blank(),
+                                     axis.ticks = element_blank()),
+                               labs(fill = "Vegetation type",
+                                    y = "Proportion of \n dominant vegetation",
+                                    x ="")),
+                 shared_axis_labels = TRUE)
+chap_grass_tree_long
+a7_s4 <- wrap_elements(full = chap_rf_plot_corr_long)/wrap_elements(full = chap_grass_tree_long) +
+  plot_layout(widths = unit(c(12), c("in")),
+              heights = unit(c(12), c("in"))) +
+  plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(size = 35))
+```
+

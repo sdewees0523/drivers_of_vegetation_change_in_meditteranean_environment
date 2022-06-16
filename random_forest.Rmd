@@ -1,0 +1,1130 @@
+---
+title: "random_forest"
+author: "Shane Dewees"
+date: "11/30/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(caret)
+library(randomForest)
+library(vcd)
+```
+
+## Loading in all data files
+ - Data files were all created in data_preperation markdown and described in detail there. 
+
+```{r}
+veg_enviro_fire_drought <- read.csv(here("csv_data", "veg_enviro_fire_drought.csv")) %>% 
+  rename("southwestness" = "aspect")
+veg_enviro_fire_drought_1 <- read.csv(here("csv_data", "veg_enviro_fire_drought_1.csv")) %>% 
+  rename("southwestness" = "aspect")
+veg_enviro_fire_drought_2 <- read.csv(here("csv_data", "veg_enviro_fire_drought_2.csv")) %>% 
+  rename("southwestness" = "aspect")
+veg_enviro_fire_drought_3 <- read.csv(here("csv_data", "veg_enviro_fire_drought_3.csv")) %>% 
+  rename("southwestness" = "aspect")
+veg_enviro_fire_drought_4 <- read.csv(here("csv_data", "veg_enviro_fire_drought_4.csv")) %>% 
+  rename("southwestness" = "aspect")
+veg_enviro_fire_drought_5 <- read.csv(here("csv_data", "veg_enviro_fire_drought_5.csv")) %>% 
+  rename("southwestness" = "aspect")
+
+chaparral_cover_drought_analysis <- veg_enviro_fire_drought %>% 
+  filter(dominant_veg_1930 == "chaparral") %>% 
+  filter(dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  mutate(chaparral_cover_2009 = case_when(dominant_veg_2009 == "chaparral" ~ as.numeric(dominant_cover_2009),
+                                          secondary_veg_2009 == "chaparral" ~ as.numeric(secondary_cover_2009),
+                                          TRUE ~ 100 - as.numeric(dominant_cover_2009) - as.numeric(secondary_cover_2009))) %>% 
+  mutate(chaparral_cover_change = chaparral_cover_2009 - dominant_cover_1930) %>% 
+  na.omit()
+
+chaparral_cover_drought1_analysis <- veg_enviro_fire_drought_1 %>% 
+  filter(dominant_veg_1930 == "chaparral") %>% 
+  filter(dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  mutate(chaparral_cover_2009 = case_when(dominant_veg_2009 == "chaparral" ~ as.numeric(dominant_cover_2009),
+                                          secondary_veg_2009 == "chaparral" ~ as.numeric(secondary_cover_2009),
+                                          TRUE ~ 100 - as.numeric(dominant_cover_2009) - as.numeric(secondary_cover_2009))) %>% 
+  mutate(chaparral_cover_change = chaparral_cover_2009 - dominant_cover_1930) %>% 
+  na.omit()
+
+chaparral_cover_drought2_analysis <- veg_enviro_fire_drought_2 %>% 
+  filter(dominant_veg_1930 == "chaparral") %>% 
+  filter(dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  mutate(chaparral_cover_2009 = case_when(dominant_veg_2009 == "chaparral" ~ as.numeric(dominant_cover_2009),
+                                          secondary_veg_2009 == "chaparral" ~ as.numeric(secondary_cover_2009),
+                                          TRUE ~ 100 - as.numeric(dominant_cover_2009) - as.numeric(secondary_cover_2009))) %>% 
+  mutate(chaparral_cover_change = chaparral_cover_2009 - dominant_cover_1930) %>% 
+  na.omit()
+
+chaparral_cover_drought3_analysis <- veg_enviro_fire_drought_3 %>% 
+  filter(dominant_veg_1930 == "chaparral") %>% 
+  filter(dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  mutate(chaparral_cover_2009 = case_when(dominant_veg_2009 == "chaparral" ~ as.numeric(dominant_cover_2009),
+                                          secondary_veg_2009 == "chaparral" ~ as.numeric(secondary_cover_2009),
+                                          TRUE ~ 100 - as.numeric(dominant_cover_2009) - as.numeric(secondary_cover_2009))) %>% 
+  mutate(chaparral_cover_change = chaparral_cover_2009 - dominant_cover_1930) %>% 
+  na.omit()
+
+chaparral_cover_drought4_analysis <- veg_enviro_fire_drought_4 %>% 
+  filter(dominant_veg_1930 == "chaparral") %>% 
+  filter(dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  mutate(chaparral_cover_2009 = case_when(dominant_veg_2009 == "chaparral" ~ as.numeric(dominant_cover_2009),
+                                          secondary_veg_2009 == "chaparral" ~ as.numeric(secondary_cover_2009),
+                                          TRUE ~ 100 - as.numeric(dominant_cover_2009) - as.numeric(secondary_cover_2009))) %>% 
+  mutate(chaparral_cover_change = chaparral_cover_2009 - dominant_cover_1930) %>% 
+  na.omit()
+
+chaparral_cover_drought5_analysis <- veg_enviro_fire_drought_5 %>% 
+  filter(dominant_veg_1930 == "chaparral") %>% 
+  filter(dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  mutate(chaparral_cover_2009 = case_when(dominant_veg_2009 == "chaparral" ~ as.numeric(dominant_cover_2009),
+                                          secondary_veg_2009 == "chaparral" ~ as.numeric(secondary_cover_2009),
+                                          TRUE ~ 100 - as.numeric(dominant_cover_2009) - as.numeric(secondary_cover_2009))) %>% 
+  mutate(chaparral_cover_change = chaparral_cover_2009 - dominant_cover_1930) %>% 
+  na.omit()
+
+chaparral_cover_drought_continuous <- chaparral_cover_drought_analysis %>% 
+  dplyr::select("chaparral_cover_change",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox",
+                "solar_radiation_winter", 
+                "road_dist",
+                "precipitation",
+                "max_temp", 
+                "mean_temp",
+                "min_temp", 
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly")
+
+chaparral_cover_drought1_continuous <- chaparral_cover_drought1_analysis %>% 
+  dplyr::select("chaparral_cover_change",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox",
+                "solar_radiation_winter", 
+                "road_dist",
+                "precipitation",
+                "max_temp", 
+                "mean_temp",
+                "min_temp", 
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly")
+
+chaparral_cover_drought2_continuous <- chaparral_cover_drought2_analysis %>% 
+  dplyr::select("chaparral_cover_change",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox",
+                "solar_radiation_winter", 
+                "road_dist",
+                "precipitation",
+                "max_temp", 
+                "mean_temp",
+                "min_temp", 
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly")
+
+chaparral_cover_drought3_continuous <- chaparral_cover_drought3_analysis %>% 
+ dplyr::select("chaparral_cover_change",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox",
+                "solar_radiation_winter", 
+                "road_dist",
+                "precipitation",
+                "max_temp", 
+                "mean_temp",
+                "min_temp", 
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly")
+
+chaparral_cover_drought4_continuous <- chaparral_cover_drought4_analysis %>% 
+ dplyr::select("chaparral_cover_change",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox",
+                "solar_radiation_winter", 
+                "road_dist",
+                "precipitation",
+                "max_temp", 
+                "mean_temp",
+                "min_temp", 
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly")
+
+chaparral_cover_drought5_continuous <- chaparral_cover_drought5_analysis %>% 
+  dplyr::select("chaparral_cover_change",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox",
+                "solar_radiation_winter", 
+                "road_dist",
+                "precipitation",
+                "max_temp", 
+                "mean_temp",
+                "min_temp", 
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly")
+
+```
+
+```{r}
+set.seed(123)
+training_samples_drought <- chaparral_cover_drought_continuous$chaparral_cover_change %>%  
+  createDataPartition(p = 0.8, list = FALSE)
+
+train_chap_drought_cover <- chaparral_cover_drought_continuous[training_samples_drought, ]
+
+test_chap_drought_cover <- chaparral_cover_drought_continuous[-training_samples_drought, ]
+
+set.seed(123)
+
+random_chap_drought_cover <- train_chap_drought_cover 
+
+random_chap_drought_cover_test <- test_chap_drought_cover
+
+
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(train_chap_drought_cover[-1],
+       train_chap_drought_cover$chaparral_cover_change, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r}
+set.seed(123)
+
+chap_cover_drought_rf <- randomForest(chaparral_cover_change ~., data = train_chap_drought_cover,
+                              type = prob,
+                              ntree = 600,
+                              mtry = 5,
+                              importance = TRUE)
+chap_cover_drought_rf
+
+set.seed(123)
+pred_chap_cover_drought_rf <- predict(chap_cover_drought_rf, random_chap_drought_cover_test) %>% 
+  data.frame() %>% 
+  rename("predicted" = ".") %>% 
+  bind_cols(random_chap_drought_cover_test)
+
+ggplot(pred_chap_cover_drought_rf, aes(x = predicted, y = chaparral_cover_change)) +
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+ 
+rf_chap_cover_drought_confusion_table <- table(random_chap_drought_cover_test$chaparral_cover_change, pred_chap_cover_drought_rf$predicted)
+
+chap_cover_drought_rf_mda <- data.frame(chap_cover_drought_rf$importance) %>% 
+  dplyr::select("X.IncMSE") %>% 
+  rownames_to_column(var = "variables")
+
+chap_cover_drought_rf_plot <- ggplot(chap_cover_drought_rf_mda, aes(fct_reorder(variables, X.IncMSE),X.IncMSE))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Percent increase in mean square error")+
+  theme_classic()
+chap_cover_drought_rf_plot
+RMSE(test_chap_drought_cover$chaparral_cover_change, pred_chap_cover_drought_rf$predicted)
+```
+
+```{r}
+set.seed(123)
+
+training_samples_drought1 <- chaparral_cover_drought1_continuous$chaparral_cover_change %>%  
+  createDataPartition(p = 0.8, list = FALSE)
+
+train_chap_drought1_cover <- chaparral_cover_drought1_continuous[training_samples_drought1, ]
+
+test_chap_drought1_cover <- chaparral_cover_drought1_continuous[-training_samples_drought1, ]
+
+set.seed(123)
+
+random_chap_drought1_cover <- train_chap_drought1_cover 
+
+random_chap_drought1_cover_test <- test_chap_drought1_cover
+
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(train_chap_drought1_cover[-1],
+       train_chap_drought1_cover$chaparral_cover_change, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r}
+set.seed(123)
+
+chap_cover_drought1_rf <- randomForest(chaparral_cover_change ~., data = train_chap_drought1_cover,
+                              type = prob,
+                              ntree = 500,
+                              mtry = 5,
+                              importance = TRUE)
+chap_cover_drought1_rf
+
+set.seed(123)
+pred_chap_cover_drought1_rf <- predict(chap_cover_drought1_rf, random_chap_drought1_cover_test) %>% 
+  data.frame() %>% 
+  rename("predicted" = ".") %>% 
+  bind_cols(random_chap_drought1_cover_test)
+
+ggplot(pred_chap_cover_drought1_rf, aes(x = predicted, y = chaparral_cover_change)) +
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+ 
+rf_chap_cover_drought1_confusion_table <- table(random_chap_drought1_cover_test$chaparral_cover_change, pred_chap_cover_drought1_rf$predicted)
+
+chap_cover_drought1_rf_mda <- data.frame(chap_cover_drought1_rf$importance) %>% 
+  dplyr::select("X.IncMSE") %>% 
+  rownames_to_column(var = "variables")
+
+chap_cover_drought1_rf_plot <- ggplot(chap_cover_drought1_rf_mda, aes(fct_reorder(variables, X.IncMSE),X.IncMSE))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Percent increase in mean square error")+
+  theme_classic()
+chap_cover_drought1_rf_plot
+RMSE(test_chap_drought1_cover$chaparral_cover_change, pred_chap_cover_drought1_rf$predicted)
+```
+
+```{r}
+set.seed(123)
+
+training_samples_drought2 <- chaparral_cover_drought2_continuous$chaparral_cover_change %>%  
+  createDataPartition(p = 0.8, list = FALSE)
+
+train_chap_drought2_cover <- chaparral_cover_drought2_continuous[training_samples_drought2, ]
+
+test_chap_drought2_cover <- chaparral_cover_drought2_continuous[-training_samples_drought2, ]
+
+set.seed(123)
+
+random_chap_drought2_cover <- train_chap_drought2_cover 
+
+random_chap_drought2_cover_test <- test_chap_drought2_cover
+
+
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(train_chap_drought2_cover[-1],
+       train_chap_drought2_cover$chaparral_cover_change, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r}
+set.seed(123)
+
+chap_cover_drought2_rf <- randomForest(chaparral_cover_change ~., data = train_chap_drought2_cover,
+                              type = prob,
+                              ntree = 700,
+                              mtry = 5,
+                              importance = TRUE)
+chap_cover_drought2_rf
+
+
+pred_chap_cover_drought2_rf <- predict(chap_cover_drought2_rf, random_chap_drought2_cover_test) %>% 
+  data.frame() %>% 
+  rename("predicted" = ".") %>% 
+  bind_cols(random_chap_drought2_cover_test)
+
+ggplot(pred_chap_cover_drought2_rf, aes(x = predicted, y = chaparral_cover_change)) +
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+ 
+rf_chap_cover_drought2_confusion_table <- table(random_chap_drought2_cover_test$chaparral_cover_change, pred_chap_cover_drought2_rf$predicted)
+
+chap_cover_drought2_rf_mda <- data.frame(chap_cover_drought2_rf$importance) %>% 
+  dplyr::select("X.IncMSE") %>% 
+  rownames_to_column(var = "variables")
+
+chap_cover_drought2_rf_plot <- ggplot(chap_cover_drought2_rf_mda, aes(fct_reorder(variables, X.IncMSE),X.IncMSE))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Percent increase in mean square error")+
+  theme_classic()
+chap_cover_drought2_rf_plot
+RMSE(test_chap_drought2_cover$chaparral_cover_change, pred_chap_cover_drought2_rf$predicted)
+```
+
+
+```{r}
+set.seed(123)
+
+training_samples_drought3 <- chaparral_cover_drought3_continuous$chaparral_cover_change %>%  
+  createDataPartition(p = 0.8, list = FALSE)
+
+train_chap_drought3_cover <- chaparral_cover_drought3_continuous[training_samples_drought3, ]
+
+test_chap_drought3_cover <- chaparral_cover_drought3_continuous[-training_samples_drought3, ]
+
+set.seed(123)
+
+random_chap_drought3_cover <- train_chap_drought3_cover 
+
+random_chap_drought3_cover_test <- test_chap_drought3_cover
+
+
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(train_chap_drought3_cover[-1],
+       train_chap_drought3_cover$chaparral_cover_change, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r}
+set.seed(123)
+
+chap_cover_drought3_rf <- randomForest(chaparral_cover_change ~., data = train_chap_drought3_cover,
+                              type = prob,
+                              ntree = 600,
+                              mtry = 5,
+                              importance = TRUE)
+chap_cover_drought3_rf
+
+set.seed(123)
+pred_chap_cover_drought3_rf <- predict(chap_cover_drought3_rf, random_chap_drought3_cover_test) %>% 
+  data.frame() %>% 
+  rename("predicted" = ".") %>% 
+  bind_cols(random_chap_drought3_cover_test)
+
+ggplot(pred_chap_cover_drought3_rf, aes(x = predicted, y = chaparral_cover_change)) +
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+ 
+rf_chap_cover_drought3_confusion_table <- table(random_chap_drought3_cover_test$chaparral_cover_change, pred_chap_cover_drought3_rf$predicted)
+
+chap_cover_drought3_rf_mda <- data.frame(chap_cover_drought3_rf$importance) %>% 
+  dplyr::select("X.IncMSE") %>% 
+  rownames_to_column(var = "variables")
+
+chap_cover_drought3_rf_plot <- ggplot(chap_cover_drought3_rf_mda, aes(fct_reorder(variables, X.IncMSE),X.IncMSE))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Percent increase in mean square error")+
+  theme_classic()
+chap_cover_drought3_rf_plot
+RMSE(test_chap_drought3_cover$chaparral_cover_change, pred_chap_cover_drought3_rf$predicted)
+```
+
+```{r}
+set.seed(123)
+
+training_samples_drought4 <- chaparral_cover_drought4_continuous$chaparral_cover_change %>%  
+  createDataPartition(p = 0.8, list = FALSE)
+
+train_chap_drought4_cover <- chaparral_cover_drought4_continuous[training_samples_drought4, ]
+
+test_chap_drought4_cover <- chaparral_cover_drought4_continuous[-training_samples_drought4, ]
+
+set.seed(123)
+
+random_chap_drought4_cover <- train_chap_drought4_cover 
+
+random_chap_drought4_cover_test <- test_chap_drought4_cover
+
+
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(train_chap_drought4_cover[-1],
+       train_chap_drought4_cover$chaparral_cover_change, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r}
+set.seed(123)
+
+chap_cover_drought4_rf <- randomForest(chaparral_cover_change ~., data = train_chap_drought4_cover,
+                              type = prob,
+                              ntree = 500,
+                              mtry = 10,
+                              importance = TRUE)
+chap_cover_drought4_rf
+
+set.seed(123)
+pred_chap_cover_drought4_rf <- predict(chap_cover_drought4_rf, random_chap_drought4_cover_test) %>% 
+  data.frame() %>% 
+  rename("predicted" = ".") %>% 
+  bind_cols(random_chap_drought4_cover_test)
+
+ggplot(pred_chap_cover_drought4_rf, aes(x = predicted, y = chaparral_cover_change)) +
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+ 
+rf_chap_cover_drought4_confusion_table <- table(random_chap_drought4_cover_test$chaparral_cover_change, pred_chap_cover_drought4_rf$predicted)
+
+chap_cover_drought4_rf_mda <- data.frame(chap_cover_drought4_rf$importance) %>% 
+  dplyr::select("X.IncMSE") %>% 
+  rownames_to_column(var = "variables")
+
+chap_cover_drought4_rf_plot <- ggplot(chap_cover_drought4_rf_mda, aes(fct_reorder(variables, X.IncMSE),X.IncMSE))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Percent increase in mean square error")+
+  theme_classic()
+chap_cover_drought4_rf_plot
+RMSE(test_chap_drought4_cover$chaparral_cover_change, pred_chap_cover_drought4_rf$predicted)
+```
+
+```{r}
+set.seed(123)
+
+training_samples_drought5 <- chaparral_cover_drought5_continuous$chaparral_cover_change %>%  
+  createDataPartition(p = 0.8, list = FALSE)
+
+train_chap_drought5_cover <- chaparral_cover_drought5_continuous[training_samples_drought5, ]
+
+test_chap_drought5_cover <- chaparral_cover_drought5_continuous[-training_samples_drought5, ]
+
+set.seed(123)
+
+random_chap_drought5_cover <- train_chap_drought5_cover 
+
+random_chap_drought5_cover_test <- test_chap_drought5_cover
+
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(train_chap_drought5_cover[-1],
+       train_chap_drought5_cover$chaparral_cover_change, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r}
+set.seed(123)
+
+chap_cover_drought5_rf <- randomForest(chaparral_cover_change ~., data = train_chap_drought5_cover,
+                              type = prob,
+                              ntree = 600,
+                              mtry = 5,
+                              importance = TRUE)
+chap_cover_drought5_rf
+
+set.seed(123)
+pred_chap_cover_drought5_rf <- predict(chap_cover_drought5_rf, random_chap_drought5_cover_test) %>% 
+  data.frame() %>% 
+  rename("predicted" = ".") %>% 
+  bind_cols(random_chap_drought5_cover_test)
+
+ggplot(pred_chap_cover_drought5_rf, aes(x = predicted, y = chaparral_cover_change)) +
+  geom_point()+
+  geom_abline(slope = 1, intercept = 0)
+
+ 
+rf_chap_cover_drought5_confusion_table <- table(random_chap_drought5_cover_test$chaparral_cover_change, pred_chap_cover_drought5_rf$predicted)
+
+chap_cover_drought5_rf_mda <- data.frame(chap_cover_drought5_rf$importance) %>% 
+  dplyr::select("X.IncMSE") %>% 
+  rownames_to_column(var = "variables")
+
+chap_cover_drought5_rf_plot <- ggplot(chap_cover_drought5_rf_mda, aes(fct_reorder(variables, X.IncMSE),X.IncMSE))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Percent increase in mean square error")+
+  theme_classic()
+chap_cover_drought5_rf_plot
+RMSE(test_chap_drought5_cover$chaparral_cover_change, pred_chap_cover_drought5_rf$predicted)
+```
+
+
+
+## Conversion
+
+```{r}
+chap_grass_drought <- veg_enviro_fire_drought %>% 
+  filter(dominant_veg_1930 == "chaparral" & dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  dplyr::select("dominant_veg_2009",
+                "secondary_cover_1930",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox", 
+                "solar_radiation_winter", 
+                "road_dist", 
+                "precipitation", 
+                "max_temp", 
+                "mean_temp", 
+                "min_temp",
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly") 
+
+chap_grass_drought_1 <- veg_enviro_fire_drought_1 %>% 
+  filter(dominant_veg_1930 == "chaparral" & dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  dplyr::select("dominant_veg_2009",
+                "secondary_cover_1930",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox", 
+                "solar_radiation_winter", 
+                "road_dist", 
+                "precipitation", 
+                "max_temp", 
+                "mean_temp", 
+                "min_temp",
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly") 
+
+chap_grass_drought_2 <- veg_enviro_fire_drought_2 %>% 
+  filter(dominant_veg_1930 == "chaparral" & dominant_veg_2009 %in% c("chaparral", "grass")) %>%  
+  dplyr::select("dominant_veg_2009",
+                "secondary_cover_1930",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox", 
+                "solar_radiation_winter", 
+                "road_dist", 
+                "precipitation", 
+                "max_temp", 
+                "mean_temp", 
+                "min_temp",
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly") 
+
+chap_grass_drought_3 <- veg_enviro_fire_drought_3 %>% 
+  filter(dominant_veg_1930 == "chaparral" & dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  dplyr::select("dominant_veg_2009",
+                "secondary_cover_1930",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox", 
+                "solar_radiation_winter", 
+                "road_dist", 
+                "precipitation", 
+                "max_temp", 
+                "mean_temp", 
+                "min_temp",
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly") 
+
+chap_grass_drought_4 <- veg_enviro_fire_drought_4 %>% 
+  filter(dominant_veg_1930 == "chaparral" & dominant_veg_2009 %in% c("chaparral", "grass")) %>% 
+  dplyr::select("dominant_veg_2009",
+                "secondary_cover_1930",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox", 
+                "solar_radiation_winter", 
+                "road_dist", 
+                "precipitation", 
+                "max_temp", 
+                "mean_temp", 
+                "min_temp",
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly")
+
+chap_grass_drought_5 <- veg_enviro_fire_drought_5 %>% 
+  filter(dominant_veg_1930 == "chaparral" & dominant_veg_2009 %in% c("chaparral", "grass")) %>%  
+ dplyr::select("dominant_veg_2009",
+                "secondary_cover_1930",
+                "elevation",
+                "southwestness", 
+                "slope",
+                "solar_radiation_summer", 
+                "solar_radiation_equinox", 
+                "solar_radiation_winter", 
+                "road_dist", 
+                "precipitation", 
+                "max_temp", 
+                "mean_temp", 
+                "min_temp",
+                "max_vpd_jan", 
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly") 
+
+set.seed(123)
+training_samples_drought <- chap_grass_drought$dominant_veg_2009 %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+train_chap_drought <- chap_grass_drought[training_samples_drought, ]
+test_chap_drought <- chap_grass_drought[-training_samples_drought, ]
+
+set.seed(123)
+training_samples_drought_1 <- chap_grass_drought_1$dominant_veg_2009 %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+train_chap_drought_1 <- chap_grass_drought_1[training_samples_drought_1, ]
+test_chap_drought_1 <- chap_grass_drought_1[-training_samples_drought_1, ]
+
+set.seed(123)
+training_samples_drought_2 <- chap_grass_drought_2$dominant_veg_2009 %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+train_chap_drought_2 <- chap_grass_drought_2[training_samples_drought_2, ]
+test_chap_drought_2 <- chap_grass_drought_2[-training_samples_drought_2, ]
+
+set.seed(123)
+training_samples_drought_3 <- chap_grass_drought_3$dominant_veg_2009 %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+train_chap_drought_3 <- chap_grass_drought_3[training_samples_drought_3, ]
+test_chap_drought_3 <- chap_grass_drought_3[-training_samples_drought_3, ]
+
+set.seed(123)
+training_samples_drought_4 <- chap_grass_drought_4$dominant_veg_2009 %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+train_chap_drought_4 <- chap_grass_drought_4[training_samples_drought_4, ]
+test_chap_drought_4 <- chap_grass_drought_4[-training_samples_drought_4, ]
+
+set.seed(123)
+training_samples_drought_5 <- chap_grass_drought_5$dominant_veg_2009 %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+train_chap_drought_5 <- chap_grass_drought_5[training_samples_drought_5, ]
+test_chap_drought_5 <- chap_grass_drought_5[-training_samples_drought_5, ]
+
+random_chap_drought <- train_chap_drought %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+random_test_drought <- test_chap_drought %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+random_chap_drought_1 <- train_chap_drought_1 %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+random_test_drought_1 <- test_chap_drought_1 %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+random_chap_drought_2 <- train_chap_drought_2 %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+random_test_drought_2 <- test_chap_drought_2 %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+random_chap_drought_3 <- train_chap_drought_3 %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+random_test_drought_3 <- test_chap_drought_3 %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+random_chap_drought_4 <- train_chap_drought_4 %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+random_test_drought_4 <- test_chap_drought_4 %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+
+random_chap_drought_5 <- train_chap_drought_5 %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+random_test_drought_5 <- test_chap_drought_5 %>% 
+  mutate(dominant_veg_2009 = as.factor(dominant_veg_2009))
+```
+
+
+```{r}
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(random_chap_drought[-1],
+       random_chap_drought$dominant_veg_2009, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r}
+set.seed(123)
+chap_drought_rf <- randomForest(dominant_veg_2009 ~., 
+                        data = random_chap_drought, 
+                        importance = TRUE, 
+                        type = prob,
+                        ntree=1000, 
+                        mtry = 6)
+chap_drought_rf
+set.seed(123)
+pred_chap_drought_rf <- predict(chap_drought_rf, random_test_drought, type = "prob") %>% 
+  data.frame() %>% 
+  mutate(conversion = case_when(chaparral > 0.5 ~ "chaparral",
+                                grass > 0.5 ~ "grass"))
+rf_chap_drought_confusion_table <- table(random_test_drought$dominant_veg_2009, pred_chap_drought_rf$conversion)
+Kappa(rf_chap_drought_confusion_table)
+
+chap_drought_rf_mda <- data.frame(chap_drought_rf[["importance"]]) %>% 
+  dplyr::select("MeanDecreaseAccuracy") %>% 
+  rownames_to_column(var = "variables")
+
+chap_drought_rf_plot <- ggplot(chap_drought_rf_mda, aes(fct_reorder(variables, MeanDecreaseAccuracy), MeanDecreaseAccuracy))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Mean decrease in accuracy")+
+  theme_classic()
+chap_drought_rf_plot
+```
+
+```{r}
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(random_chap_drought_1[-1],
+       random_chap_drought_1$dominant_veg_2009, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r}
+set.seed(123)
+chap_drought_1_rf <- randomForest(dominant_veg_2009 ~., 
+                        data = random_chap_drought_1, 
+                        importance = TRUE, 
+                        type = prob,
+                        ntree=900, 
+                        mtry = 6)
+chap_drought_1_rf
+set.seed(123)
+pred_chap_drought_1_rf <- predict(chap_drought_1_rf, random_test_drought_1, type = "prob") %>% 
+  data.frame() %>% 
+  mutate(conversion = case_when(chaparral > 0.5 ~ "chaparral",
+                                grass > 0.5 ~ "grass"))
+rf_chap_drought_1_confusion_table <- table(random_test_drought_1$dominant_veg_2009, pred_chap_drought_1_rf$conversion)
+Kappa(rf_chap_drought_1_confusion_table)
+
+chap_drought_1_rf_mda <- data.frame(chap_drought_1_rf[["importance"]]) %>% 
+  dplyr::select("MeanDecreaseAccuracy") %>% 
+  rownames_to_column(var = "variables")
+
+chap_drought_1_rf_plot <- ggplot(chap_drought_1_rf_mda, aes(fct_reorder(variables, MeanDecreaseAccuracy), MeanDecreaseAccuracy))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Mean decrease in accuracy")+
+  theme_classic()
+chap_drought_1_rf_plot
+```
+
+```{r}
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(random_chap_drought_2[-1],
+       random_chap_drought_2$dominant_veg_2009, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+
+}
+```
+
+```{r}
+set.seed(123)
+chap_drought_2_rf <- randomForest(dominant_veg_2009 ~., 
+                        data = random_chap_drought_2, 
+                        importance = TRUE, 
+                        type = prob,
+                        ntree=700, 
+                        mtry = 6)
+chap_drought_2_rf
+set.seed(123)
+pred_chap_drought_2_rf <- predict(chap_drought_2_rf, random_test_drought_2, type = "prob") %>% 
+  data.frame() %>% 
+  mutate(conversion = case_when(chaparral > 0.5 ~ "chaparral",
+                                grass > 0.5 ~ "grass"))
+rf_chap_drought_2_confusion_table <- table(random_test_drought_2$dominant_veg_2009, pred_chap_drought_2_rf$conversion)
+Kappa(rf_chap_drought_2_confusion_table)
+
+chap_drought_2_rf_mda <- data.frame(chap_drought_2_rf[["importance"]]) %>% 
+  dplyr::select("MeanDecreaseAccuracy") %>% 
+  rownames_to_column(var = "variables")
+
+chap_drought_2_rf_plot <- ggplot(chap_drought_2_rf_mda, aes(fct_reorder(variables, MeanDecreaseAccuracy), MeanDecreaseAccuracy))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Mean decrease in accuracy")+
+  theme_classic()
+chap_drought_2_rf_plot
+```
+
+```{r}
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(random_chap_drought_3[-1],
+       random_chap_drought_3$dominant_veg_2009, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r}
+set.seed(123)
+chap_drought_3_rf <- randomForest(dominant_veg_2009 ~., 
+                        data = random_chap_drought_3, 
+                        importance = TRUE, 
+                        type = prob,
+                        ntree=900, 
+                        mtry = 6)
+chap_drought_3_rf
+set.seed(123)
+pred_chap_drought_3_rf <- predict(chap_drought_3_rf, random_test_drought_3, type = "prob") %>% 
+  data.frame() %>% 
+  mutate(conversion = case_when(chaparral > 0.5 ~ "chaparral",
+                                grass > 0.5 ~ "grass"))
+rf_chap_drought_3_confusion_table <- table(random_test_drought_3$dominant_veg_2009, pred_chap_drought_3_rf$conversion)
+Kappa(rf_chap_drought_3_confusion_table)
+
+chap_drought_3_rf_mda <- data.frame(chap_drought_3_rf[["importance"]]) %>% 
+  dplyr::select("MeanDecreaseAccuracy") %>% 
+  rownames_to_column(var = "variables")
+
+chap_drought_3_rf_plot <- ggplot(chap_drought_3_rf_mda, aes(fct_reorder(variables, MeanDecreaseAccuracy), MeanDecreaseAccuracy))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Mean decrease in accuracy")+
+  theme_classic()
+chap_drought_3_rf_plot
+```
+
+```{r}
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(random_chap_drought_4[-1],
+       random_chap_drought_4$dominant_veg_2009, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r}
+set.seed(123)
+chap_drought_4_rf <- randomForest(dominant_veg_2009 ~., 
+                        data = random_chap_drought_4, 
+                        importance = TRUE, 
+                        type = prob,
+                        ntree=900, 
+                        mtry = 6)
+chap_drought_4_rf
+set.seed(123)
+pred_chap_drought_4_rf <- predict(chap_drought_4_rf, random_test_drought_4, type = "prob") %>% 
+  data.frame() %>% 
+  mutate(conversion = case_when(chaparral > 0.5 ~ "chaparral",
+                                grass > 0.5 ~ "grass"))
+rf_chap_drought_4_confusion_table <- table(random_test_drought_4$dominant_veg_2009, pred_chap_drought_4_rf$conversion)
+Kappa(rf_chap_drought_4_confusion_table)
+
+chap_drought_4_rf_mda <- data.frame(chap_drought_4_rf[["importance"]]) %>% 
+  dplyr::select("MeanDecreaseAccuracy") %>% 
+  rownames_to_column(var = "variables")
+
+chap_drought_4_rf_plot <- ggplot(chap_drought_4_rf_mda, aes(fct_reorder(variables, MeanDecreaseAccuracy), MeanDecreaseAccuracy))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Mean decrease in accuracy")+
+  theme_classic()
+chap_drought_4_rf_plot
+```
+
+```{r}
+for(x in c(seq(from = 500, to = 1000, by = 100))){
+  set.seed(123)
+tuneRF(random_chap_drought_5[-1],
+       random_chap_drought_5$dominant_veg_2009, 
+       ntreeTry=x,stepFactor = 1.5, 
+       improve = 0.01, 
+       trace =TRUE, 
+       plot = FALSE)
+}
+```
+
+```{r}
+set.seed(123)
+chap_drought_5_rf <- randomForest(dominant_veg_2009 ~., 
+                        data = random_chap_drought_5, 
+                        importance = TRUE, 
+                        type = prob,
+                        ntree=800, 
+                        mtry = 9)
+chap_drought_5_rf
+set.seed(123)
+pred_chap_drought_5_rf <- predict(chap_drought_5_rf, random_test_drought_5, type = "prob") %>% 
+  data.frame() %>% 
+  mutate(conversion = case_when(chaparral > 0.5 ~ "chaparral",
+                                grass > 0.5 ~ "grass"))
+rf_chap_drought_5_confusion_table <- table(random_test_drought_5$dominant_veg_2009, pred_chap_drought_5_rf$conversion)
+Kappa(rf_chap_drought_5_confusion_table)
+
+chap_drought_5_rf_mda <- data.frame(chap_drought_5_rf[["importance"]]) %>% 
+  dplyr::select("MeanDecreaseAccuracy") %>% 
+  rownames_to_column(var = "variables")
+
+chap_drought_5_rf_plot <- ggplot(chap_drought_5_rf_mda, aes(fct_reorder(variables, MeanDecreaseAccuracy), MeanDecreaseAccuracy))+
+  geom_bar(stat= "identity")+
+  coord_flip() +
+  labs(x = "Variables",
+       y = "Mean decrease in accuracy")+
+  theme_classic()
+chap_drought_5_rf_plot
+```
+
+
+```{r}
+cover_correlation <- cor(chaparral_cover_drought4_continuous[2:23])
+
+conversion_correlation <- cor(chap_grass_drought_4[2:24])
+```
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,907 @@
+---
+title: "Data Preperation"
+author: "Shane Dewees"
+date: "12/22/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(sf)
+library(janitor)
+library(raster)
+library(here)
+library(zoo)
+```
+
+## Loading in All Data
+
+```{r}
+fire <- st_read(here("fire_perimeters", "fire.shp"))
+elevation <- raster(here("Elevation", "elevation.tif"))
+slope <- raster(here("Slope", "slope.tif"))
+aspect <- raster(here("Aspect", "aspect.tif"))
+solar_radiation_summer <- raster(here("Solar Insolation", "solar_insolation_summer.tif"))
+solar_radiation_equinox <- raster(here("Solar Insolation", "solar_radiation_equinox.tif"))
+solar_radiation_winter <- raster(here("Solar Insolation", "solar_radiation_winter.tif"))
+road_dist <- raster(here("Road_dist", "road_distance.tif"))
+precipitation <- raster(here("PRISM_Data", "PRISM_ppt_30yr_normal_800mM2_annual_bil", "ppt.tif"))
+max_temp <- raster(here("PRISM_Data", "PRISM_tmax_30yr_normal_800mM2_08_bil", "tmax.tif"))
+mean_temp <- raster(here("PRISM_Data", "PRISM_tmean_30yr_normal_800mM2_annual_bil", "tmean.tif"))
+min_temp <- raster(here("PRISM_Data", "PRISM_tmin_30yr_normal_800mM2_01_bil", "tmin.tif"))
+max_vpd_jan <- raster(here("PRISM_Data", "PRISM_vpdmax_30yr_normal_800mM2_01_bil", "max_jan_vpd.tif"))
+max_vpd_aug <- raster(here("PRISM_Data", "PRISM_vpdmax_30yr_normal_800mM2_08_bil", "max_aug_vpd.tif"))
+available_water_supply_1 <- st_read(here("soil", "water_supply", "available_water_supply.shp")) %>% 
+  dplyr::select(AWS150)
+available_water_supply_2 <- st_read(here("soil", "water_supply", "available_water_supply_2.shp")) %>% 
+  dplyr::select(AWS150)
+available_water_supply <- rbind(available_water_supply_1, available_water_supply_2)
+bulk_density_1 <- st_read(here("soil", "bulk_density", "bulk_density.shp")) %>% 
+  dplyr::select(Db3rdbar)
+bulk_density_2 <- st_read(here("soil", "bulk_density", "bulk_density_2.shp")) %>% 
+  dplyr::select(Db3rdbar)
+bulk_density <- rbind(bulk_density_1, bulk_density_2)
+organic_matter_1 <- st_read(here("soil", "organic_matter", "organic_matter.shp")) %>% 
+  dplyr::select(OrgMatter)
+organic_matter_2 <- st_read(here("soil", "organic_matter", "organic_matter_2.shp")) %>% 
+  dplyr::select(OrgMatter)
+organic_matter <- rbind(organic_matter_1, organic_matter_2)
+clay_1 <- st_read(here("soil", "clay", "clay.shp")) %>% 
+  dplyr::select(Clay)
+clay_2 <- st_read(here("soil", "clay", "clay_2.shp")) %>% 
+  dplyr::select(Clay)
+clay <- rbind(clay_1, clay_2)
+sand_1 <- st_read(here("soil", "sand", "sand.shp")) %>% 
+  dplyr::select(Sand)
+sand_2 <- st_read(here("soil", "sand", "sand_2.shp")) %>% 
+  dplyr::select(Sand)
+sand <- rbind(sand_1, sand_2)
+silt_1 <- st_read(here("soil", "silt", "silt.shp")) %>% 
+  dplyr::select(Silt)
+silt_2 <- st_read(here("soil", "silt", "silt_2.shp")) %>% 
+  dplyr::select(Silt)
+silt <- rbind(silt_1, silt_2)
+
+veg_points_all <- st_read(here("vegetation_classifications", "plot_points.shp")) %>% 
+  rename(plot_number = CID, veg_1930 = F1930_Veg, veg_2009 = F2009_Veg)
+```
+
+
+
+
+## Loading in precip anomalies (calculated as yearly precipitation - precipitation normal)
+
+```{r}
+precip_1912 <- raster(here("precip_anomalies", "anom_1912.tif"))
+precip_1913 <- raster(here("precip_anomalies", "anom_1913.tif"))
+precip_1914 <- raster(here("precip_anomalies", "anom_1914.tif"))
+precip_1915 <- raster(here("precip_anomalies", "anom_1915.tif"))
+precip_1916 <- raster(here("precip_anomalies", "anom_1916.tif"))
+precip_1917 <- raster(here("precip_anomalies", "anom_1917.tif"))
+precip_1918 <- raster(here("precip_anomalies", "anom_1918.tif"))
+precip_1919 <- raster(here("precip_anomalies", "anom_1919.tif"))
+precip_1920 <- raster(here("precip_anomalies", "anom_1920.tif"))
+precip_1921 <- raster(here("precip_anomalies", "anom_1921.tif"))
+precip_1922 <- raster(here("precip_anomalies", "anom_1922.tif"))
+precip_1923 <- raster(here("precip_anomalies", "anom_1923.tif"))
+precip_1924 <- raster(here("precip_anomalies", "anom_1924.tif"))
+precip_1925 <- raster(here("precip_anomalies", "anom_1925.tif"))
+precip_1926 <- raster(here("precip_anomalies", "anom_1926.tif"))
+precip_1927 <- raster(here("precip_anomalies", "anom_1927.tif"))
+precip_1928 <- raster(here("precip_anomalies", "anom_1928.tif"))
+precip_1929 <- raster(here("precip_anomalies", "anom_1929.tif"))
+precip_1930 <- raster(here("precip_anomalies", "anom_1930.tif"))
+precip_1931 <- raster(here("precip_anomalies", "anom_1931.tif"))
+precip_1932 <- raster(here("precip_anomalies", "anom_1932.tif"))
+precip_1933 <- raster(here("precip_anomalies", "anom_1933.tif"))
+precip_1934 <- raster(here("precip_anomalies", "anom_1934.tif"))
+precip_1935 <- raster(here("precip_anomalies", "anom_1935.tif"))
+precip_1936 <- raster(here("precip_anomalies", "anom_1936.tif"))
+precip_1937 <- raster(here("precip_anomalies", "anom_1937.tif"))
+precip_1938 <- raster(here("precip_anomalies", "anom_1938.tif"))
+precip_1939 <- raster(here("precip_anomalies", "anom_1939.tif"))
+precip_1940 <- raster(here("precip_anomalies", "anom_1940.tif"))
+precip_1941 <- raster(here("precip_anomalies", "anom_1941.tif"))
+precip_1942 <- raster(here("precip_anomalies", "anom_1942.tif"))
+precip_1943 <- raster(here("precip_anomalies", "anom_1943.tif"))
+precip_1944 <- raster(here("precip_anomalies", "anom_1944.tif"))
+precip_1945 <- raster(here("precip_anomalies", "anom_1945.tif"))
+precip_1946 <- raster(here("precip_anomalies", "anom_1946.tif"))
+precip_1947 <- raster(here("precip_anomalies", "anom_1947.tif"))
+precip_1948 <- raster(here("precip_anomalies", "anom_1948.tif"))
+precip_1949 <- raster(here("precip_anomalies", "anom_1949.tif"))
+precip_1950 <- raster(here("precip_anomalies", "anom_1950.tif"))
+precip_1951 <- raster(here("precip_anomalies", "anom_1951.tif"))
+precip_1952 <- raster(here("precip_anomalies", "anom_1952.tif"))
+precip_1953 <- raster(here("precip_anomalies", "anom_1953.tif"))
+precip_1954 <- raster(here("precip_anomalies", "anom_1954.tif"))
+precip_1955 <- raster(here("precip_anomalies", "anom_1955.tif"))
+precip_1956 <- raster(here("precip_anomalies", "anom_1956.tif"))
+precip_1957 <- raster(here("precip_anomalies", "anom_1957.tif"))
+precip_1958 <- raster(here("precip_anomalies", "anom_1958.tif"))
+precip_1959 <- raster(here("precip_anomalies", "anom_1959.tif"))
+precip_1960 <- raster(here("precip_anomalies", "anom_1960.tif"))
+precip_1961 <- raster(here("precip_anomalies", "anom_1961.tif"))
+precip_1962 <- raster(here("precip_anomalies", "anom_1962.tif"))
+precip_1963 <- raster(here("precip_anomalies", "anom_1963.tif"))
+precip_1964 <- raster(here("precip_anomalies", "anom_1964.tif"))
+precip_1965 <- raster(here("precip_anomalies", "anom_1965.tif"))
+precip_1966 <- raster(here("precip_anomalies", "anom_1966.tif"))
+precip_1967 <- raster(here("precip_anomalies", "anom_1967.tif"))
+precip_1968 <- raster(here("precip_anomalies", "anom_1968.tif"))
+precip_1969 <- raster(here("precip_anomalies", "anom_1969.tif"))
+precip_1970 <- raster(here("precip_anomalies", "anom_1970.tif"))
+precip_1971 <- raster(here("precip_anomalies", "anom_1971.tif"))
+precip_1972 <- raster(here("precip_anomalies", "anom_1972.tif"))
+precip_1973 <- raster(here("precip_anomalies", "anom_1973.tif"))
+precip_1974 <- raster(here("precip_anomalies", "anom_1974.tif"))
+precip_1975 <- raster(here("precip_anomalies", "anom_1975.tif"))
+precip_1976 <- raster(here("precip_anomalies", "anom_1976.tif"))
+precip_1977 <- raster(here("precip_anomalies", "anom_1977.tif"))
+precip_1978 <- raster(here("precip_anomalies", "anom_1978.tif"))
+precip_1979 <- raster(here("precip_anomalies", "anom_1979.tif"))
+precip_1980 <- raster(here("precip_anomalies", "anom_1980.tif"))
+precip_1981 <- raster(here("precip_anomalies", "anom_1981.tif"))
+precip_1982 <- raster(here("precip_anomalies", "anom_1982.tif"))
+precip_1983 <- raster(here("precip_anomalies", "anom_1983.tif"))
+precip_1984 <- raster(here("precip_anomalies", "anom_1984.tif"))
+precip_1985 <- raster(here("precip_anomalies", "anom_1985.tif"))
+precip_1986 <- raster(here("precip_anomalies", "anom_1986.tif"))
+precip_1987 <- raster(here("precip_anomalies", "anom_1987.tif"))
+precip_1988 <- raster(here("precip_anomalies", "anom_1988.tif"))
+precip_1989 <- raster(here("precip_anomalies", "anom_1989.tif"))
+precip_1990 <- raster(here("precip_anomalies", "anom_1990.tif"))
+precip_1991 <- raster(here("precip_anomalies", "anom_1991.tif"))
+precip_1992 <- raster(here("precip_anomalies", "anom_1992.tif"))
+precip_1993 <- raster(here("precip_anomalies", "anom_1993.tif"))
+precip_1994 <- raster(here("precip_anomalies", "anom_1994.tif"))
+precip_1995 <- raster(here("precip_anomalies", "anom_1995.tif"))
+precip_1996 <- raster(here("precip_anomalies", "anom_1996.tif"))
+precip_1997 <- raster(here("precip_anomalies", "anom_1997.tif"))
+precip_1998 <- raster(here("precip_anomalies", "anom_1998.tif"))
+precip_1999 <- raster(here("precip_anomalies", "anom_1999.tif"))
+precip_2000 <- raster(here("precip_anomalies", "anom_2000.tif"))
+precip_2001 <- raster(here("precip_anomalies", "anom_2001.tif"))
+precip_2002 <- raster(here("precip_anomalies", "anom_2002.tif"))
+precip_2003 <- raster(here("precip_anomalies", "anom_2003.tif"))
+precip_2004 <- raster(here("precip_anomalies", "anom_2004.tif"))
+precip_2005 <- raster(here("precip_anomalies", "anom_2005.tif"))
+precip_2006 <- raster(here("precip_anomalies", "anom_2006.tif"))
+precip_2007 <- raster(here("precip_anomalies", "anom_2007.tif"))
+precip_2008 <- raster(here("precip_anomalies", "anom_2008.tif"))
+precip_2009 <- raster(here("precip_anomalies", "anom_2009.tif"))
+
+```
+
+## Extracting environmental data to Vegetation points and then getting one value per plot (average of points)
+
+```{r}
+veg_points <- veg_points_all %>% 
+  mutate(elevation = raster::extract(elevation, veg_points_all),
+         aspect = raster::extract(aspect, veg_points_all), 
+         aspect = cos((aspect * pi/180) - (225 * pi/180)),
+         slope = raster::extract(slope, veg_points_all),
+         solar_radiation_summer = raster::extract(solar_radiation_summer, veg_points_all),
+         solar_radiation_equinox = raster::extract(solar_radiation_equinox, veg_points_all),
+         solar_radiation_winter = raster::extract(solar_radiation_winter, veg_points_all),
+         road_distance = raster::extract(road_dist, veg_points_all), 
+         precipitation = raster::extract(precipitation, veg_points_all),
+         max_temp = raster::extract(max_temp, veg_points_all),
+         mean_temp = raster::extract(mean_temp, veg_points_all),
+         min_temp = raster::extract(min_temp, veg_points_all),
+         max_vpd_jan = raster::extract(max_vpd_jan, veg_points_all),
+         max_vpd_aug = raster::extract(max_vpd_aug, veg_points_all),
+         available_water_supply = st_intersection(available_water_supply, veg_points_all),
+         bulk_density = st_intersection(bulk_density, veg_points_all),
+         organic_matter = st_intersection(organic_matter, veg_points_all),
+         clay = st_intersection(clay, veg_points_all),
+         sand = st_intersection(sand, veg_points_all),
+         silt = st_intersection(silt, veg_points_all))
+veg_points_soil <- veg_points %>% 
+  mutate(available_water_supply = veg_points$available_water_supply$AWS150,
+         bulk_density = veg_points$bulk_density$Db3rdbar,
+         organic_matter = veg_points$organic_matter$OrgMatter,
+         clay = veg_points$clay$Clay,
+         sand = veg_points$sand$Sand,
+         silt = veg_points$silt$Silt)
+
+
+veg_points_reduced <- veg_points_soil %>% 
+  dplyr::select(!c("veg_1930", "veg_2009")) %>% 
+  group_by(plot_number) %>% 
+  summarise(elevation = mean(elevation),
+            aspect = mean(aspect),
+            slope = mean(slope),
+            solar_radiation_summer = mean(solar_radiation_summer),
+            solar_radiation_equinox = mean(solar_radiation_equinox),
+            solar_radiation_winter = mean(solar_radiation_winter),
+            road_dist = mean(road_distance),
+            precipitation = mean(precipitation),
+            max_temp = mean(max_temp),
+            mean_temp = mean(mean_temp),
+            min_temp = mean(min_temp),
+            max_vpd_jan = mean(max_vpd_jan),
+            max_vpd_aug = mean(max_vpd_aug),
+            available_water_supply = median(available_water_supply),
+            bulk_density = median(bulk_density),
+            organic_matter = median(organic_matter),
+            clay = median(clay),
+            sand = median(sand),
+            silt = median(silt))
+```
+
+
+## Manipulating data into desired format
+  - Creating data table that gives:
+      - cid_1 (plot number)
+      - number of points (out of 50) that fell in barren, grass, sage, chaparral, or tree in 1930 
+      - number of points (out of 50) that fell in barren, grass, sage, chaparral, or tree in 2009
+      - calculating the dominant vegetation and its percent cover per plot for both 1930 and 2009
+      
+
+```{r}
+plots_cover <- veg_points %>% 
+  dplyr::select("plot_number", "veg_1930", "veg_2009") %>% 
+  st_drop_geometry()
+
+plots_cover_1930 <- plots_cover %>% 
+  group_by(plot_number) %>% 
+  count(veg_1930) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = veg_1930, values_from = n) %>% 
+  mutate_all(~replace(.,is.na(.),0)) %>%
+ group_by(plot_number) %>% 
+  mutate(dom_veg_1930 = max(c(g,t,c,s,b)),
+         sec_veg_1930 = sort(c(g,t,c,s,b), partial = 4)[4]) %>% 
+  mutate(dominant_cover_1930 = dom_veg_1930 * 2,
+         secondary_cover_1930 = sec_veg_1930 * 2,
+         dominant_veg_1930 = case_when(dom_veg_1930 == sec_veg_1930 ~ "mixed",
+                             dom_veg_1930 == g ~ "grass",
+                             dom_veg_1930 == t ~ "tree", 
+                             dom_veg_1930 == c ~ "chaparral",
+                             dom_veg_1930 == s ~ "sage",
+                             dom_veg_1930 == b ~ "barren"),
+         secondary_veg_1930 = case_when(sec_veg_1930 == dom_veg_1930 ~ "mixed",
+                                   sec_veg_1930 == g ~ "grass",
+                                   sec_veg_1930 == t ~ "tree", 
+                                   sec_veg_1930 == c ~ "chaparral",
+                                   sec_veg_1930 == s ~ "sage",
+                                   sec_veg_1930 == b ~ "barren")) %>% 
+  rename("grass_1930" = "g", 
+         "chaparral_1930" = "c",
+         "tree_1930" = "t",
+         "sage_1930" = "s", 
+         "barren_1930" = "b")
+
+plots_cover_2009 <- plots_cover %>% 
+  group_by(plot_number) %>% 
+  count(veg_2009) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = veg_2009, values_from = n) %>% 
+  mutate_all(~replace(.,is.na(.),0)) %>%
+ group_by(plot_number) %>% 
+  mutate(dom_veg_2009 = max(c(g,t,c,s,b)),
+         sec_veg_2009 = sort(c(g,t,c,s,b), partial = 4)[4]) %>% 
+  mutate(dominant_cover_2009 = dom_veg_2009 * 2,
+         secondary_cover_2009 = sec_veg_2009 * 2,
+         dominant_veg_2009 = case_when(dom_veg_2009 == sec_veg_2009 ~ "mixed",
+                             dom_veg_2009 == g ~ "grass",
+                             dom_veg_2009 == t ~ "tree", 
+                             dom_veg_2009 == c ~ "chaparral",
+                             dom_veg_2009 == s ~ "sage",
+                             dom_veg_2009 == b ~ "barren"),
+         secondary_veg_2009 = case_when(sec_veg_2009 == dom_veg_2009 ~ "mixed",
+                                   sec_veg_2009 == g ~ "grass",
+                                   sec_veg_2009 == t ~ "tree", 
+                                   sec_veg_2009 == c ~ "chaparral",
+                                   sec_veg_2009 == s ~ "sage",
+                                   sec_veg_2009 == b ~ "barren")) %>% 
+  rename("grass_2009" = "g", 
+         "chaparral_2009" = "c",
+         "tree_2009" = "t",
+         "sage_2009" = "s",
+         "barren_2009" = "b")
+
+plots_percent_cover <- full_join(plots_cover_1930, plots_cover_2009, by = "plot_number")
+  
+```
+
+
+## Making Fire Variables
+  - counting the number of fires that burned through a given point
+  - calculating the smallest fire free interval for points that experienced 2 or more fires
+  - calculating minimum precipitation anomalies for a range of years surrounding the fire for use in the random forest code to determine best number of years to use for this variable 
+
+```{r}
+precip_anom_plots <- veg_points %>% 
+  mutate(anom_1912 = raster::extract(precip_1912, veg_points),
+         anom_1913 = raster::extract(precip_1913, veg_points),
+         anom_1914 = raster::extract(precip_1914, veg_points),
+         anom_1915 = raster::extract(precip_1915, veg_points),
+         anom_1916 = raster::extract(precip_1916, veg_points),
+         anom_1917 = raster::extract(precip_1917, veg_points),
+         anom_1918 = raster::extract(precip_1918, veg_points),
+         anom_1919 = raster::extract(precip_1919, veg_points),
+         anom_1920 = raster::extract(precip_1920, veg_points),
+         anom_1921 = raster::extract(precip_1921, veg_points),
+         anom_1922 = raster::extract(precip_1922, veg_points),
+         anom_1923 = raster::extract(precip_1923, veg_points),
+         anom_1924 = raster::extract(precip_1924, veg_points),
+         anom_1925 = raster::extract(precip_1925, veg_points),
+         anom_1926 = raster::extract(precip_1926, veg_points),
+         anom_1927 = raster::extract(precip_1927, veg_points),
+         anom_1928 = raster::extract(precip_1928, veg_points),
+         anom_1929 = raster::extract(precip_1929, veg_points),
+         anom_1930 = raster::extract(precip_1930, veg_points),
+         anom_1931 = raster::extract(precip_1931, veg_points),
+         anom_1932 = raster::extract(precip_1932, veg_points),
+         anom_1933 = raster::extract(precip_1933, veg_points),
+         anom_1934 = raster::extract(precip_1934, veg_points),
+         anom_1935 = raster::extract(precip_1935, veg_points),
+         anom_1936 = raster::extract(precip_1936, veg_points),
+         anom_1937 = raster::extract(precip_1937, veg_points),
+         anom_1938 = raster::extract(precip_1938, veg_points),
+         anom_1939 = raster::extract(precip_1939, veg_points),
+         anom_1940 = raster::extract(precip_1940, veg_points),
+         anom_1941 = raster::extract(precip_1941, veg_points),
+         anom_1942 = raster::extract(precip_1942, veg_points),
+         anom_1943 = raster::extract(precip_1943, veg_points),
+         anom_1944 = raster::extract(precip_1944, veg_points),
+         anom_1945 = raster::extract(precip_1945, veg_points),
+         anom_1946 = raster::extract(precip_1946, veg_points),
+         anom_1947 = raster::extract(precip_1947, veg_points),
+         anom_1948 = raster::extract(precip_1948, veg_points),
+         anom_1949 = raster::extract(precip_1949, veg_points),
+         anom_1950 = raster::extract(precip_1950, veg_points),
+         anom_1951 = raster::extract(precip_1951, veg_points),
+         anom_1952 = raster::extract(precip_1952, veg_points),
+         anom_1953 = raster::extract(precip_1953, veg_points),
+         anom_1954 = raster::extract(precip_1954, veg_points),
+         anom_1955 = raster::extract(precip_1955, veg_points),
+         anom_1956 = raster::extract(precip_1956, veg_points),
+         anom_1957 = raster::extract(precip_1957, veg_points),
+         anom_1958 = raster::extract(precip_1958, veg_points),
+         anom_1959 = raster::extract(precip_1959, veg_points),
+         anom_1960 = raster::extract(precip_1960, veg_points),
+         anom_1961 = raster::extract(precip_1961, veg_points),
+         anom_1962 = raster::extract(precip_1962, veg_points),
+         anom_1963 = raster::extract(precip_1963, veg_points),
+         anom_1964 = raster::extract(precip_1964, veg_points),
+         anom_1965 = raster::extract(precip_1965, veg_points),
+         anom_1966 = raster::extract(precip_1966, veg_points),
+         anom_1967 = raster::extract(precip_1967, veg_points),
+         anom_1968 = raster::extract(precip_1968, veg_points),
+         anom_1969 = raster::extract(precip_1969, veg_points),
+         anom_1970 = raster::extract(precip_1970, veg_points),
+         anom_1971 = raster::extract(precip_1971, veg_points),
+         anom_1972 = raster::extract(precip_1972, veg_points),
+         anom_1973 = raster::extract(precip_1973, veg_points),
+         anom_1974 = raster::extract(precip_1974, veg_points),
+         anom_1975 = raster::extract(precip_1975, veg_points),
+         anom_1976 = raster::extract(precip_1976, veg_points),
+         anom_1977 = raster::extract(precip_1977, veg_points),
+         anom_1978 = raster::extract(precip_1978, veg_points),
+         anom_1979 = raster::extract(precip_1979, veg_points),
+         anom_1980 = raster::extract(precip_1980, veg_points),
+         anom_1981 = raster::extract(precip_1981, veg_points),
+         anom_1982 = raster::extract(precip_1982, veg_points),
+         anom_1983 = raster::extract(precip_1983, veg_points),
+         anom_1984 = raster::extract(precip_1984, veg_points),
+         anom_1985 = raster::extract(precip_1985, veg_points),
+         anom_1986 = raster::extract(precip_1986, veg_points),
+         anom_1987 = raster::extract(precip_1987, veg_points),
+         anom_1988 = raster::extract(precip_1988, veg_points),
+         anom_1989 = raster::extract(precip_1989, veg_points),
+         anom_1990 = raster::extract(precip_1990, veg_points),
+         anom_1991 = raster::extract(precip_1991, veg_points),
+         anom_1992 = raster::extract(precip_1992, veg_points),
+         anom_1993 = raster::extract(precip_1993, veg_points),
+         anom_1994 = raster::extract(precip_1994, veg_points),
+         anom_1995 = raster::extract(precip_1995, veg_points),
+         anom_1996 = raster::extract(precip_1996, veg_points),
+         anom_1997 = raster::extract(precip_1997, veg_points),
+         anom_1998 = raster::extract(precip_1998, veg_points),
+         anom_1999 = raster::extract(precip_1999, veg_points),
+         anom_2000 = raster::extract(precip_2000, veg_points),
+         anom_2001 = raster::extract(precip_2001, veg_points),
+         anom_2002 = raster::extract(precip_2002, veg_points),
+         anom_2003 = raster::extract(precip_2003, veg_points),
+         anom_2004 = raster::extract(precip_2004, veg_points),
+         anom_2005 = raster::extract(precip_2005, veg_points),
+         anom_2006 = raster::extract(precip_2006, veg_points),
+         anom_2007 = raster::extract(precip_2007, veg_points),
+         anom_2008 = raster::extract(precip_2008, veg_points),
+         anom_2009 = raster::extract(precip_2009, veg_points))
+precip_anom_plots_clean <- precip_anom_plots %>% 
+  dplyr::select(!OBJECTID & !veg_1930 & !veg_2009 & !elevation & !aspect & !slope & !solar_radiation_equinox & !solar_radiation_summer & !solar_radiation_winter & !road_distance & !precipitation & !max_temp & !mean_temp & !min_temp & !max_vpd_jan & !max_vpd_aug & !available_water_supply & !bulk_density & !organic_matter & !clay & !sand & !silt) %>% 
+  st_drop_geometry() %>% 
+  unique() %>% 
+  pivot_longer(2:99, names_to = "year", values_to = "precipitation_anomaly") %>% 
+  mutate(year = as.numeric(str_remove(year, "anom_")))
+
+veg_fire <- st_intersection(fire, veg_points) %>% 
+  dplyr::select(plot_number, YEAR_) %>% 
+  st_drop_geometry() %>% 
+  distinct() %>% 
+  mutate(YEAR_ = as.numeric(YEAR_)) %>% 
+  filter(YEAR_ <= 2009) %>% 
+  group_by(plot_number) %>% 
+  arrange(YEAR_) %>% 
+  summarise(year_list = toString(YEAR_)) %>% 
+  ungroup()
+
+veg_fire_plots_list_rough <- veg_fire %>% 
+  separate(year_list, sep = ",", into = c("fire_1", "fire_2", "fire_3", "fire_4", "fire_5", "fire_6", "fire_7")) %>% 
+  mutate(fire_1 = as.numeric(fire_1),
+         fire_2 = as.numeric(fire_2),
+         fire_3 = as.numeric(fire_3),
+         fire_4 = as.numeric(fire_4),
+         fire_5 = as.numeric(fire_5),
+         fire_6 = as.numeric(fire_6),
+         fire_7 = as.numeric(fire_7)) %>% 
+  filter(fire_2 <= 2003|is.na(fire_2)) %>% 
+  filter(fire_3 <= 2003|is.na(fire_3)) %>% 
+  filter(fire_4 <= 2003|is.na(fire_4)) %>% 
+  filter(fire_5 <= 2003|is.na(fire_5)) %>% 
+  filter(fire_6 <= 2003|is.na(fire_6)) %>% 
+  filter(fire_7 <= 2003|is.na(fire_6)) %>% 
+  dplyr::select(!fire_7 & !fire_6)
+
+veg_fire_plots_list <- veg_fire_plots_list_rough %>% 
+  mutate(fire_1 = case_when(fire_2 > 1930 | is.na(fire_2) ~ veg_fire_plots_list_rough$fire_1,
+                            fire_2 <= 1930 ~ veg_fire_plots_list_rough$fire_2),
+         fire_3 = case_when(fire_2 > 1930 ~ veg_fire_plots_list_rough$fire_3,
+                            fire_2 <= 1930 ~ veg_fire_plots_list_rough$fire_4),
+         fire_4 = case_when(fire_2 > 1930 ~ veg_fire_plots_list_rough$fire_4,
+                            fire_2 <= 1930 ~ veg_fire_plots_list_rough$fire_5),
+         fire_5 = case_when(fire_2 > 1930 ~ veg_fire_plots_list_rough$fire_5),
+         fire_2 = case_when(fire_2 > 1930 ~ veg_fire_plots_list_rough$fire_2,
+                            fire_2 <= 1930 ~ veg_fire_plots_list_rough$fire_3)) %>% 
+  mutate(interval_1 = fire_2 - fire_1,
+         interval_2 = fire_3 - fire_2,
+         interval_3 = fire_4 - fire_3,
+         interval_4 = fire_5 - fire_4) %>%  
+  mutate(number_fires = 5 - is.na(fire_1) - is.na(fire_2) - is.na(fire_3) - is.na(fire_4) - is.na(fire_5),
+         min_return_interval = case_when(number_fires == 1 ~ 86,
+                                        number_fires >=2 ~ pmin(interval_1, interval_2, interval_3, interval_4, na.rm = TRUE))) %>% 
+  full_join(precip_anom_plots_clean, by = "plot_number") %>% 
+  mutate(year = as.numeric(year)) %>% 
+  pivot_longer(cols = c("fire_1", "fire_2", "fire_3", "fire_4", "fire_5"), 
+               names_to =  "fire", values_to = "fire_year" )
+
+veg_fire_anom_year <- veg_fire_plots_list %>%
+  group_by(plot_number) %>% 
+  filter(fire_year == year, 
+         fire_year >=1930) %>% 
+  ungroup() %>% 
+  distinct() %>% 
+  group_by(plot_number) %>% 
+  mutate(precipitation_anomaly = min(precipitation_anomaly)) %>% 
+  ungroup() %>% 
+  dplyr::select(!year) %>% 
+  distinct() %>% 
+  dplyr::select(!fire_year) %>% 
+  group_by(plot_number) %>% 
+  mutate(min_anomaly = precipitation_anomaly) %>% 
+  ungroup() %>% 
+  dplyr::select(plot_number, number_fires, min_return_interval, min_anomaly) %>% 
+  distinct()
+
+veg_fire_anom_year_plus1 <- veg_fire_plots_list %>% 
+  group_by(plot_number) %>% 
+  filter(fire_year == year | year == fire_year + 1,
+         fire_year >=1930) %>% 
+  ungroup() %>% 
+  distinct() %>% 
+  group_by(plot_number, fire) %>% 
+  mutate(precipitation_anomaly =sum(precipitation_anomaly)) %>% 
+  ungroup() %>% 
+  dplyr::select(!year) %>% 
+  distinct() %>% 
+  dplyr::select(!fire_year) %>% 
+  group_by(plot_number) %>% 
+  mutate(min_anomaly = min(precipitation_anomaly)) %>% 
+  ungroup() %>% 
+  dplyr::select(plot_number, number_fires, min_return_interval, min_anomaly) %>% 
+  distinct()
+
+veg_fire_anom_year_plus2 <- veg_fire_plots_list %>%
+  group_by(plot_number) %>% 
+  filter(fire_year == year | year == fire_year + 1 | year == fire_year + 2,
+         fire_year >=1930) %>% 
+  ungroup() %>% 
+  distinct() %>% 
+  group_by(plot_number, fire) %>% 
+  mutate(precipitation_anomaly =sum(precipitation_anomaly)) %>% 
+  ungroup() %>% 
+  dplyr::select(!year) %>% 
+  distinct() %>% 
+  dplyr::select(!fire_year) %>% 
+  group_by(plot_number) %>% 
+  mutate(min_anomaly = min(precipitation_anomaly)) %>% 
+  ungroup() %>% 
+  dplyr::select(plot_number, number_fires, min_return_interval, min_anomaly) %>% 
+  distinct()
+
+veg_fire_anom_year_plus3 <- veg_fire_plots_list %>%
+  group_by(plot_number) %>% 
+  filter(fire_year == year | year == fire_year + 1 | year == fire_year + 2 | year == fire_year + 3,
+         fire_year >=1930) %>% 
+  ungroup() %>% 
+  distinct() %>% 
+  group_by(plot_number, fire) %>% 
+  mutate(precipitation_anomaly =sum(precipitation_anomaly)) %>% 
+  ungroup() %>% 
+  dplyr::select(!year) %>% 
+  distinct() %>% 
+  dplyr::select(!fire_year) %>% 
+  group_by(plot_number) %>% 
+  mutate(min_anomaly = min(precipitation_anomaly)) %>% 
+  ungroup() %>% 
+  dplyr::select(plot_number, number_fires, min_return_interval, min_anomaly) %>% 
+  distinct()
+
+veg_fire_anom_year_plus4 <- veg_fire_plots_list %>%
+  group_by(plot_number) %>% 
+  filter(fire_year == year | year == fire_year + 1 | year == fire_year + 2 | year == fire_year + 3 | year == fire_year + 4,
+         fire_year >=1930) %>% 
+  ungroup() %>% 
+  distinct() %>% 
+  group_by(plot_number, fire) %>% 
+  mutate(precipitation_anomaly =sum(precipitation_anomaly)) %>% 
+  ungroup() %>% 
+  dplyr::select(!year) %>% 
+  distinct() %>% 
+  dplyr::select(!fire_year) %>% 
+  group_by(plot_number) %>% 
+  mutate(min_anomaly = min(precipitation_anomaly)) %>% 
+  ungroup() %>% 
+  dplyr::select(plot_number, number_fires, min_return_interval, min_anomaly) %>% 
+  distinct()
+
+veg_fire_anom_year_plus5 <- veg_fire_plots_list %>%
+  group_by(plot_number) %>% 
+  filter(fire_year == year | year == fire_year + 1 | year == fire_year + 2 | year == fire_year + 3 | year == fire_year + 4 | year == fire_year + 5,
+         fire_year >=1930) %>% 
+  ungroup() %>% 
+  distinct() %>% 
+  group_by(plot_number, fire) %>% 
+  mutate(precipitation_anomaly =sum(precipitation_anomaly)) %>% 
+  ungroup() %>% 
+  dplyr::select(!year) %>% 
+  distinct() %>% 
+  dplyr::select(!fire_year) %>% 
+  group_by(plot_number) %>% 
+  mutate(min_anomaly = min(precipitation_anomaly)) %>% 
+  ungroup() %>% 
+  dplyr::select(plot_number, number_fires, min_return_interval, min_anomaly) %>% 
+  distinct()
+
+``` 
+
+## Combining all data into one sheet 
+
+```{r}
+veg_enviro_fire_drought <- full_join(plots_percent_cover, veg_points_reduced, by = "plot_number") %>% 
+  full_join(veg_fire_anom_year, by ="plot_number") %>% 
+  na.omit() %>% 
+  dplyr::select("plot_number",
+                "dominant_veg_1930", 
+                "secondary_veg_1930",
+                "dominant_cover_1930",
+                "secondary_cover_1930",
+                "dominant_veg_2009", 
+                "secondary_veg_2009",
+                "dominant_cover_2009", 
+                "secondary_cover_2009", 
+                "elevation",
+                "aspect",
+                "slope",
+                "solar_radiation_summer",
+                "solar_radiation_equinox", 
+                "solar_radiation_winter",
+                "road_dist",
+                "precipitation",
+                "max_temp", 
+                "mean_temp", 
+                "min_temp",
+                "max_vpd_jan",
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly") %>% 
+  filter(organic_matter != 0)
+
+veg_enviro_fire_drought_1 <- full_join(plots_percent_cover, veg_points_reduced, by = "plot_number") %>% 
+  full_join(veg_fire_anom_year_plus1, by ="plot_number") %>% 
+  na.omit() %>% 
+  dplyr::select("plot_number",
+                "dominant_veg_1930", 
+                "secondary_veg_1930",
+                "dominant_cover_1930",
+                "secondary_cover_1930",
+                "dominant_veg_2009", 
+                "secondary_veg_2009",
+                "dominant_cover_2009", 
+                "secondary_cover_2009", 
+                "elevation",
+                "aspect",
+                "slope",
+                "solar_radiation_summer",
+                "solar_radiation_equinox", 
+                "solar_radiation_winter",
+                "road_dist",
+                "precipitation",
+                "max_temp", 
+                "mean_temp", 
+                "min_temp",
+                "max_vpd_jan",
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly") %>% 
+  filter(organic_matter != 0)
+
+veg_enviro_fire_drought_2 <- full_join(plots_percent_cover, veg_points_reduced, by = "plot_number") %>% 
+  full_join(veg_fire_anom_year_plus2, by ="plot_number") %>% 
+  na.omit() %>% 
+  dplyr::select("plot_number",
+                "dominant_veg_1930", 
+                "secondary_veg_1930",
+                "dominant_cover_1930",
+                "secondary_cover_1930",
+                "dominant_veg_2009", 
+                "secondary_veg_2009",
+                "dominant_cover_2009", 
+                "secondary_cover_2009", 
+                "elevation",
+                "aspect",
+                "slope",
+                "solar_radiation_summer",
+                "solar_radiation_equinox", 
+                "solar_radiation_winter",
+                "road_dist",
+                "precipitation",
+                "max_temp", 
+                "mean_temp", 
+                "min_temp",
+                "max_vpd_jan",
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly") %>% 
+  filter(organic_matter != 0)
+
+veg_enviro_fire_drought_3 <- full_join(plots_percent_cover, veg_points_reduced, by = "plot_number") %>% 
+  full_join(veg_fire_anom_year_plus3, by ="plot_number") %>% 
+  na.omit() %>% 
+  dplyr::select("plot_number",
+                "dominant_veg_1930", 
+                "secondary_veg_1930",
+                "dominant_cover_1930",
+                "secondary_cover_1930",
+                "dominant_veg_2009", 
+                "secondary_veg_2009",
+                "dominant_cover_2009", 
+                "secondary_cover_2009", 
+                "elevation",
+                "aspect",
+                "slope",
+                "solar_radiation_summer",
+                "solar_radiation_equinox", 
+                "solar_radiation_winter",
+                "road_dist",
+                "precipitation",
+                "max_temp", 
+                "mean_temp", 
+                "min_temp",
+                "max_vpd_jan",
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly") %>% 
+  filter(organic_matter != 0)
+
+veg_enviro_fire_drought_4 <- full_join(plots_percent_cover, veg_points_reduced, by = "plot_number") %>% 
+  full_join(veg_fire_anom_year_plus4, by ="plot_number") %>% 
+  na.omit() %>% 
+  dplyr::select("plot_number",
+                "dominant_veg_1930", 
+                "secondary_veg_1930",
+                "dominant_cover_1930",
+                "secondary_cover_1930",
+                "dominant_veg_2009", 
+                "secondary_veg_2009",
+                "dominant_cover_2009", 
+                "secondary_cover_2009", 
+                "elevation",
+                "aspect",
+                "slope",
+                "solar_radiation_summer",
+                "solar_radiation_equinox", 
+                "solar_radiation_winter",
+                "road_dist",
+                "precipitation",
+                "max_temp", 
+                "mean_temp", 
+                "min_temp",
+                "max_vpd_jan",
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly") %>% 
+  filter(organic_matter != 0)
+
+veg_enviro_fire_drought_5 <- full_join(plots_percent_cover, veg_points_reduced, by = "plot_number") %>% 
+  full_join(veg_fire_anom_year_plus5, by ="plot_number") %>% 
+  na.omit() %>% 
+  dplyr::select("plot_number",
+                "dominant_veg_1930", 
+                "secondary_veg_1930",
+                "dominant_cover_1930",
+                "secondary_cover_1930",
+                "dominant_veg_2009", 
+                "secondary_veg_2009",
+                "dominant_cover_2009", 
+                "secondary_cover_2009", 
+                "elevation",
+                "aspect",
+                "slope",
+                "solar_radiation_summer",
+                "solar_radiation_equinox", 
+                "solar_radiation_winter",
+                "road_dist",
+                "precipitation",
+                "max_temp", 
+                "mean_temp", 
+                "min_temp",
+                "max_vpd_jan",
+                "max_vpd_aug",
+                "available_water_supply",
+                "bulk_density",
+                "organic_matter",
+                "clay",
+                "sand",
+                "silt",
+                "number_fires",
+                "min_return_interval",
+                "min_anomaly") %>% 
+  filter(organic_matter != 0)
+```
+
+
+Making tidy data and different subsets of interest
+ - tidy plot data with: 
+    - cid_1 (plot number)
+    -year
+    - dominant vegetation 
+    - dominant vegetation's pervent cover 
+ - subset of tidy data that was chaparral in 1930
+ - subset of tidy data that was grass in 1930
+ - subset of tidy data that was sage in 1930
+ 
+
+```{r}
+plots_percent_cover_tidy <- plots_percent_cover %>% 
+  dplyr::select("plot_number",
+                "dominant_veg_1930", 
+                "secondary_veg_1930", 
+                "dominant_cover_1930",
+                "secondary_cover_1930", 
+                "dominant_veg_2009", 
+                "secondary_veg_2009",
+                "dominant_cover_2009",
+                "secondary_cover_2009")
+plots_percent_cover_tidy_1 <- plots_percent_cover_tidy %>% 
+  dplyr::select("plot_number", 
+                "dominant_veg_1930", 
+                "dominant_veg_2009") %>% 
+  rename(c("1930" = "dominant_veg_1930", 
+           "2009" = "dominant_veg_2009")) %>% 
+  gather("1930", "2009", key = "year", value = "dominant_veg")
+plots_percent_cover_tidy_2 <- plots_percent_cover_tidy %>% 
+   dplyr::select("plot_number", 
+                 "secondary_veg_1930", 
+                 "secondary_veg_2009") %>%
+  rename(c("1930" = "secondary_veg_1930", 
+           "2009" = "secondary_veg_2009")) %>% 
+  gather("1930", 
+         "2009", 
+         key = "year", 
+         value = "secondary_veg")
+plots_percent_cover_tidy_3 <- plots_percent_cover_tidy %>% 
+  dplyr::select("plot_number", 
+                "dominant_cover_1930", 
+                "dominant_cover_2009") %>%
+  rename(c("1930" = "dominant_cover_1930", 
+           "2009" = "dominant_cover_2009")) %>% 
+  gather("1930", 
+         "2009", 
+         key = "year", 
+         value = "primary_cover")
+plots_percent_cover_tidy_4 <- plots_percent_cover_tidy %>% 
+   dplyr::select("plot_number", 
+                 "secondary_cover_1930", 
+                 "secondary_cover_2009") %>%
+  rename(c("1930" = "secondary_cover_1930", 
+           "2009" = "secondary_cover_2009")) %>% 
+  gather("1930", 
+         "2009", 
+         key = "year", 
+         value = "secondary_cover")
+
+veg_enviro_fire_drought <- veg_enviro_fire_drought %>% 
+  ungroup() %>% 
+  filter(dominant_veg_1930 != "mixed", dominant_veg_2009 != "mixed")
+
+veg_enviro_fire_drought_1 <- veg_enviro_fire_drought_1 %>% 
+  ungroup() %>% 
+  filter(dominant_veg_1930 != "mixed", dominant_veg_2009 != "mixed")
+
+veg_enviro_fire_drought_2 <- veg_enviro_fire_drought_2 %>% 
+  ungroup() %>% 
+  filter(dominant_veg_1930 != "mixed", dominant_veg_2009 != "mixed")
+
+veg_enviro_fire_drought_3 <- veg_enviro_fire_drought_3 %>% 
+  ungroup() %>% 
+  filter(dominant_veg_1930 != "mixed", dominant_veg_2009 != "mixed")
+
+veg_enviro_fire_drought_4 <- veg_enviro_fire_drought_4 %>% 
+  ungroup() %>% 
+  filter(dominant_veg_1930 != "mixed", dominant_veg_2009 != "mixed")
+
+veg_enviro_fire_drought_5 <- veg_enviro_fire_drought_5 %>% 
+  ungroup() %>% 
+  filter(dominant_veg_1930 != "mixed", dominant_veg_2009 != "mixed")
+```
+
+## Exporting data frames
+  -veg_enviro_fire_drought: data that has the minimum fire return interval and minimum postfire precipitation anomaly (calculated from year of fire) even if they are from two separate fires
+  -veg_enviro_fire_drought_1: data that has the minimum fire return interval and minimum postfire precipitation anomaly (calculated from year of fire and the following year) even if they are from two separate fires
+  -veg_enviro_fire_drought_2: data that has the minimum fire return interval and minimum postfire precipitation anomaly (calculated from year of fire and the following two years) even if they are from two separate fires
+  -veg_enviro_fire_drought_3: data that has the minimum fire return interval and minimum postfire precipitation anomaly (calculated from year of fire and the following three years) even if they are from two separate fires
+  -veg_enviro_fire_drought_4: data that has the minimum fire return interval and minimum postfire precipitation anomaly (calculated from year of fire and the following four years) even if they are from two separate fires
+  -veg_enviro_fire_drought_5: data that has the minimum fire return interval and minimum postfire precipitation anomaly (calculated from year of fire and the following five years) even if they are from two separate fires
+
+```{r}
+write.csv(veg_enviro_fire_drought, here("csv_data", "veg_enviro_fire_drought.csv"))
+write.csv(veg_enviro_fire_drought_1, here("csv_data", "veg_enviro_fire_drought_1.csv"))
+write.csv(veg_enviro_fire_drought_2, here("csv_data", "veg_enviro_fire_drought_2.csv"))
+write.csv(veg_enviro_fire_drought_3, here("csv_data", "veg_enviro_fire_drought_3.csv"))
+write.csv(veg_enviro_fire_drought_4, here("csv_data", "veg_enviro_fire_drought_4.csv"))
+write.csv(veg_enviro_fire_drought_5, here("csv_data", "veg_enviro_fire_drought_5.csv"))
+
+write.csv(plots_percent_cover, here("csv_data", "plots_percent_cover.csv"))
+write.csv(plots_percent_cover_tidy, here("csv_data", "plots_percent_cover_tidy.csv"))
+```

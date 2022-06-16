@@ -1,0 +1,264 @@
+---
+title: "Data exploration"
+author: "Shane Dewees"
+date: "12/22/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(hrbrthemes)
+library(here)
+library(lubridate)
+```
+
+## Loading in Variables
+
+```{r}
+veg_enviro_fire_drought <- read.csv(here("csv_data", "veg_enviro_fire_drought_4.csv"))
+chaparral_analysis <- read.csv(here("csv_data", "chaparral_analysis_drought_4.csv"))
+```
+
+## Secondary Cover
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(secondary_cover_1930)) +
+  geom_histogram(position = "identity", bins = 20) +
+  theme_classic()
+
+ggplot(veg_enviro_fire_drought, aes(sample = secondary_cover_1930)) +
+  geom_qq()
+```
+
+
+## Elevation
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(elevation)) +
+  geom_histogram(position = "identity") +
+  theme_classic()
+
+ggplot(veg_enviro_fire_drought, aes(sample = elevation)) +
+  geom_qq()
+```
+normal
+
+## Aspect
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(aspect)) +
+  geom_histogram(position = "identity") +
+  theme_classic()
+
+ggplot(veg_enviro_fire_drought, aes(sample = aspect)) +
+  geom_qq()
+```
+
+not-nomral
+
+## Slope
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(slope)) +
+  geom_histogram(position = "identity") +
+  theme_classic()
+
+ggplot(veg_enviro_fire_drought, aes(sample = slope)) +
+  geom_qq()
+```
+
+normal
+
+## Solar Radiation Summer
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(solar_radiation_summer)) +
+  geom_histogram(position = "identity") +
+  theme_classic()
+
+ggplot(veg_enviro_fire_drought, aes(sample = solar_radiation_summer)) +
+  geom_qq()
+```
+
+normal
+
+## Solar Radiation Equinox
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(solar_radiation_equinox)) +
+  geom_histogram(position = "identity") +
+  theme_classic()
+
+ggplot(veg_enviro_fire_drought, aes(sample = solar_radiation_equinox)) +
+  geom_qq()
+```
+
+not normal
+
+## Solar Radiation Winter
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(solar_radiation_winter)) +
+  geom_histogram(position = "identity") +
+  theme_classic()
+
+ggplot(veg_enviro_fire_drought, aes(sample = solar_radiation_winter)) +
+  geom_qq()
+```
+
+Not normal
+
+## Road Distance 
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(road_dist)) +
+  geom_histogram(position = "identity") +
+  theme_classic()
+
+ggplot(veg_enviro_fire_drought, aes(sample = road_dist)) +
+  geom_qq()
+```
+ 
+ not-normal
+ 
+## Precipitation
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(precipitation)) +
+  geom_histogram(position = "identity") +
+  theme_classic()
+
+ggplot(veg_enviro_fire_drought, aes(sample = precipitation)) +
+  geom_qq()
+```
+
+not-normal
+
+## Max Temperature
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(max_temp)) +
+  geom_histogram(position = "identity") +
+  theme_classic()
+
+ggplot(veg_enviro_fire_drought, aes(sample = max_temp)) +
+  geom_qq()
+```
+
+normal
+
+## Mean Temperature
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(mean_temp)) +
+  geom_histogram(position = "identity") +
+  theme_classic()
+
+ggplot(veg_enviro_fire_drought, aes(sample = mean_temp)) +
+  geom_qq()
+```
+
+not-normal
+
+## Minimum Temperature
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(min_temp)) +
+  geom_histogram(position = "identity") +
+  theme_classic()
+
+ggplot(veg_enviro_fire_drought, aes(sample = min_temp)) +
+  geom_qq()
+```
+
+not-normal
+
+## Max January VPD 
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(max_vpd_jan)) +
+  geom_histogram(position = "identity") +
+  theme_classic()
+
+ggplot(veg_enviro_fire_drought, aes(sample = max_vpd_jan)) +
+  geom_qq()
+```
+
+not-normal
+
+## Max August VPD 
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(max_vpd_aug)) +
+  geom_histogram(position = "identity") +
+  theme_classic()
+
+ggplot(veg_enviro_fire_drought, aes(sample = max_vpd_aug)) +
+  geom_qq()
+```
+
+not-normal
+
+## Clay
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(clay)) +
+  geom_histogram(position = "identity", bins = 10)
+
+ggplot(veg_enviro_fire_drought, aes(sample = clay)) +
+  geom_qq()
+```
+
+## Silt
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(silt)) +
+  geom_histogram(position = "identity", bins = 10)
+
+ggplot(veg_enviro_fire_drought, aes(sample = silt)) +
+  geom_qq()
+```
+
+## Available Water Supply
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(available_water_supply)) +
+  geom_histogram(position = "identity", bins = 10)
+
+ggplot(veg_enviro_fire_drought, aes(sample = available_water_supply)) +
+  geom_qq()
+```
+
+## Organic matter
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(organic_matter)) +
+  geom_histogram(position = "identity", bins = 10)
+
+ggplot(veg_enviro_fire_drought, aes(sample = organic_matter)) +
+  geom_qq()
+```
+
+## Minimum Anomaly
+
+```{r}
+ggplot(veg_enviro_fire_drought, aes(min_anomaly)) +
+  geom_histogram(position = "identity") +
+  theme_classic()
+
+ggplot(veg_enviro_fire_drought, aes(sample = min_anomaly)) +
+  geom_qq()
+```
+
+categorical
+
+
+## Correlations 
+
+```{r}
+variables_cor <- cor(veg_enviro_fire_drought[11:23])
+pairs(veg_enviro_fire_drought[11:23])
+```
+
+
